@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="data:,">
+  <title>@input-kit/phone Showcase</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: linear-gradient(135deg, #10b981, #3b82f6);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .phone-container {
+      max-width: 720px;
+      width: 100%;
+      background: #fff;
+      padding: 70px 50px;
+      border-radius: 48px;
+      box-shadow: 0 50px 150px rgba(0,0,0,0.3);
+      position: relative;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 50px;
+      color: #1e293b;
+      font-size: 2.5rem;
+      font-weight: 900;
+      letter-spacing: -1.5px;
+    }
+    
+    .input-row {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 24px;
+      align-items: stretch;
+    }
+    .picker-column {
+      width: 290px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .country-search {
+      width: 100%;
+      height: 52px;
+      background: #f8fafc;
+      border: 2px solid #e2e8f0;
+      border-radius: 18px;
+      padding: 0 16px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #1e293b;
+      outline: none;
+      transition: all 0.25s ease;
+      font-family: inherit;
+    }
+    .country-search:focus {
+      border-color: #3b82f6;
+      background: #fff;
+    }
+    .country-select {
+      width: 100%;
+      height: 70px;
+      background: #f1f5f9;
+      border: 3px solid #e2e8f0;
+      border-radius: 24px;
+      cursor: pointer;
+      font-weight: 900;
+      font-size: 1rem;
+      transition: all 0.3s;
+      color: #1e293b;
+      padding: 0 18px;
+      appearance: none;
+      background-image: linear-gradient(45deg, transparent 50%, #64748b 50%), linear-gradient(135deg, #64748b 50%, transparent 50%);
+      background-position: calc(100% - 24px) calc(50% - 4px), calc(100% - 16px) calc(50% - 4px);
+      background-size: 8px 8px, 8px 8px;
+      background-repeat: no-repeat;
+    }
+    .country-select:hover { border-color: #3b82f6; background: #fff; }
+    .country-select:focus {
+      outline: none;
+      border-color: #10b981;
+      box-shadow: 0 15px 30px rgba(16, 185, 129, 0.15);
+    }
+    
+    .field-wrapper { flex: 1; position: relative; }
+    input {
+      width: 100%;
+      height: 70px;
+      background: #f1f5f9;
+      border: 3px solid #e2e8f0;
+      border-radius: 24px;
+      padding: 0 30px;
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: #1e293b;
+      outline: none;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    input:focus {
+      background: #fff;
+      border-color: #10b981;
+      box-shadow: 0 15px 30px rgba(16, 185, 129, 0.15);
+      transform: translateY(-5px);
+    }
+    
+    .output-panel {
+      padding: 40px;
+      background: #f8fafc;
+      border-radius: 32px;
+      border: 1px solid #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .output-label { font-size: 0.8rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px; }
+    .data-row { display: flex; justify-content: space-between; align-items: center; }
+    .data-key { color: #64748b; font-weight: 700; font-size: 0.9rem; }
+    .data-val { font-family: 'JetBrains Mono', monospace; font-weight: 900; color: #1e293b; background: #fff; padding: 6px 14px; border-radius: 12px; border: 1px solid #f1f5f9; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 900;
+      font-size: 0.8rem;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #ecfdf5;
+      color: #047857;
+      border: 1px solid #a7f3d0;
+    }
+    .status-chip.invalid {
+      background: #fef2f2;
+      color: #b91c1c;
+      border-color: #fecaca;
+    }
+    .footer-note { text-align: center; margin-top: 30px; color: #94a3b8; font-size: 0.85rem; font-weight: 500; }
+    .support-note {
+      margin-bottom: 20px;
+      text-align: center;
+      color: #64748b;
+      font-weight: 600;
+      line-height: 1.5;
+    }
+    @media (max-width: 720px) {
+      .phone-container {
+        padding: 40px 24px;
+        border-radius: 32px;
+      }
+      .input-row {
+        flex-direction: column;
+      }
+      .picker-column {
+        width: 100%;
+      }
+      h1 {
+        font-size: 2rem;
+        margin-bottom: 30px;
+      }
+      .output-panel {
+        padding: 24px;
+      }
+      .data-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+    }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.3.1",
+        "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
+        "libphonenumber-js": "https://esm.sh/libphonenumber-js@1.12.41",
+        "libphonenumber-js/mobile/examples": "https://esm.sh/libphonenumber-js@1.12.41/mobile/examples",
+        "world-countries": "https://esm.sh/world-countries@5.1.0"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div class="phone-container">
+    <h1>Connect Us</h1>
+    <div class="support-note" id="supportNote">Loading global country list...</div>
+    
+    <div class="input-row">
+      <div class="picker-column">
+        <input class="country-search" id="countrySearch" type="text" placeholder="Search country, ISO, or dial code">
+        <select class="country-select" id="countrySelect"></select>
+      </div>
+      <div class="field-wrapper">
+        <input type="text" id="phoneInput" placeholder="Phone number" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="output-panel">
+      <div class="output-label">Normalization Engine</div>
+      <div class="data-row">
+        <span class="data-key">Raw Format</span>
+        <span class="data-val" id="d1">(555) 000-0000</span>
+      </div>
+      <div class="data-row">
+        <span class="data-key">E.164 Global</span>
+        <span class="data-val" id="d2">+15550000000</span>
+      </div>
+      <div class="data-row">
+        <span class="data-key">Selected Country</span>
+        <div class="data-val" id="countryMeta">United States / +1</div>
+      </div>
+      <div class="data-row">
+        <span class="data-key">Validation</span>
+        <div class="status-chip" id="validationState">Waiting for input</div>
+      </div>
+    </div>
+
+    <div class="footer-note">Search across all supported calling regions or type an international number like +44 to auto-switch countries</div>
+  </div>
+
+  <script type="module">
+    import { addDialCode, countries, detectCountryFromPhone, formatPhone, getCountryByCode, getPlaceholder, removeDialCode, validatePhone } from '../dist/index.js';
+
+    const tel = document.getElementById('phoneInput');
+    const d1 = document.getElementById('d1');
+    const d2 = document.getElementById('d2');
+    const countryMeta = document.getElementById('countryMeta');
+    const countrySelect = document.getElementById('countrySelect');
+    const countrySearch = document.getElementById('countrySearch');
+    const supportNote = document.getElementById('supportNote');
+    const validationState = document.getElementById('validationState');
+
+    let currentCountry = getCountryByCode('US') ?? countries[0];
+    let visibleCountries = [...countries];
+
+    supportNote.textContent = `${countries.length} supported calling regions loaded from the package dataset.`;
+
+    function sortCountriesByName(list) {
+      return [...list].sort((left, right) => left.name.localeCompare(right.name, 'en', { sensitivity: 'base' }));
+    }
+
+    function renderOptions(query = '') {
+      const normalizedQuery = query.trim().toLowerCase();
+      visibleCountries = !normalizedQuery
+        ? sortCountriesByName(countries)
+        : sortCountriesByName(countries.filter((country) =>
+            country.name.toLowerCase().includes(normalizedQuery) ||
+            country.code.toLowerCase().includes(normalizedQuery) ||
+            country.dialCode.includes(normalizedQuery)
+          ));
+
+      countrySelect.replaceChildren();
+
+      for (const country of visibleCountries) {
+        const option = document.createElement('option');
+        option.value = country.code;
+        option.textContent = `${country.flag} ${country.name} (${country.dialCode})`;
+        if (country.code === currentCountry?.code) {
+          option.selected = true;
+        }
+        countrySelect.appendChild(option);
+      }
+
+      if (!visibleCountries.some((country) => country.code === currentCountry?.code) && visibleCountries[0]) {
+        currentCountry = visibleCountries[0];
+      }
+    }
+
+    function syncSelectedOption() {
+      countrySelect.value = currentCountry.code;
+    }
+
+    function updateUi() {
+      const currentInput = tel.value.trim();
+      const isInternational = currentInput.startsWith('+') || currentInput.startsWith('00');
+
+      if (isInternational) {
+        const detectedCountry = detectCountryFromPhone(currentInput);
+        if (detectedCountry && detectedCountry.code !== currentCountry.code) {
+          currentCountry = detectedCountry;
+          syncSelectedOption();
+        }
+      }
+
+      const nationalValue = isInternational ? removeDialCode(currentInput, currentCountry) : currentInput.replace(/\D/g, '');
+      const formatted = formatPhone(nationalValue, currentCountry);
+      const e164 = nationalValue ? addDialCode(nationalValue, currentCountry) : '';
+      const valid = nationalValue ? validatePhone(nationalValue, currentCountry) : false;
+
+      tel.value = formatted;
+      tel.placeholder = getPlaceholder(currentCountry);
+      d1.textContent = formatted || tel.placeholder;
+      d2.textContent = e164 || '-';
+      countryMeta.textContent = `${currentCountry.flag} ${currentCountry.name} / ${currentCountry.dialCode}`;
+      tel.style.borderColor = nationalValue ? (valid ? '#10b981' : '#ef4444') : '#e2e8f0';
+
+      validationState.textContent = nationalValue
+        ? valid
+          ? 'Valid number'
+          : 'Needs more digits or a valid format'
+        : 'Waiting for input';
+      validationState.className = nationalValue && !valid ? 'status-chip invalid' : 'status-chip';
+    }
+
+    countrySelect.addEventListener('change', (event) => {
+      currentCountry = getCountryByCode(event.target.value) ?? currentCountry;
+      updateUi();
+    });
+
+    countrySearch.addEventListener('input', (event) => {
+      renderOptions(event.target.value);
+      syncSelectedOption();
+      updateUi();
+    });
+
+    tel.addEventListener('input', () => {
+      updateUi();
+    });
+
+    renderOptions();
+    syncSelectedOption();
+    updateUi();
+  </script>
+</body>
+</html>
