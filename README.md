@@ -2,6 +2,16 @@
 
 Headless React phone input with a complete world country-code dataset, searchable country selection, and `libphonenumber-js` powered formatting and validation.
 
+## Latest update
+
+Version `0.1.3` tightens country coverage and compatibility:
+
+- India is included as `IN` with `+91` and a localized phone placeholder.
+- The country list now matches all `245` regions supported by `libphonenumber-js`.
+- Fallback metadata is included for Ascension Island (`AC`), Tristan da Cunha (`TA`), and Caribbean Netherlands (`BQ`).
+- Primary dial-code lookup now works for shared codes like `+1`, so `getCountriesByDialCode('+1')` returns matching regions.
+- Older helper and hook aliases remain available for projects already using the previous API shape.
+
 ## Features
 
 - **245 supported calling regions** derived from `libphonenumber-js` metadata and `world-countries`
