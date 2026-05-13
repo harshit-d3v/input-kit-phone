@@ -48,7 +48,7 @@ function buildDialCodes(country: (typeof worldCountries)[number] | undefined, fa
     .map((suffix) => normalizeDialCode(root, suffix))
     .filter((dialCode) => /^\+\d+$/.test(dialCode));
 
-  return Array.from(new Set(dialCodes.length ? dialCodes : [fallbackDialCode]));
+  return Array.from(new Set([fallbackDialCode, ...(dialCodes.length ? dialCodes : [])]));
 }
 
 function getCountryFormat(code: CountryCode) {

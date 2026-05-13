@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getCountries } from 'libphonenumber-js';
-import { countries, getCountryByCode } from './countries';
+import { countries, getCountriesByDialCode, getCountryByCode } from './countries';
 
 describe('countries', () => {
   it('matches libphonenumber-js supported calling region coverage', () => {
@@ -36,5 +36,11 @@ describe('countries', () => {
         dialCode: '+599',
       })
     );
+  });
+
+  it('includes each primary calling code in dial-code lookup results', () => {
+    expect(getCountriesByDialCode('+1').map((country) => country.code)).toContain('US');
+    expect(getCountriesByDialCode('+91').map((country) => country.code)).toContain('IN');
+    expect(getCountriesByDialCode('+247').map((country) => country.code)).toContain('AC');
   });
 });
