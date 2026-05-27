@@ -8,6 +8,7 @@ import {
   parseToE164,
   getNationalNumber,
   validatePhoneNumber,
+  parsePhoneValue,
   isPhoneNumberComplete,
   formatAsYouType,
   getPlaceholder,
@@ -154,18 +155,22 @@ describe('validatePhoneNumber', () => {
   it('should validate required field', () => {
     const result = validatePhoneNumber('', null, true);
     expect(result.isValid).toBe(false);
-    expect(result.error).toBe('Phone number is required');
+    expect(result.reason).toBe('required');
+    expect(result.message).toBe('Phone number is required');
+    expect(result.error).toBe(result.message);
   });
 
   it('should allow empty when not required', () => {
     const result = validatePhoneNumber('', null, false);
     expect(result.isValid).toBe(true);
+    expect(result.reason).toBeNull();
     expect(result.error).toBeNull();
   });
 
   it('should reject too short numbers', () => {
     const result = validatePhoneNumber('123', null);
     expect(result.isValid).toBe(false);
+    expect(result.reason).toBe('too_short');
     expect(result.error).toBe('Phone number is too short');
   });
 
@@ -173,13 +178,47 @@ describe('validatePhoneNumber', () => {
     const us = getCountryByCode('US');
     const result = validatePhoneNumber('4155552671', us);
     expect(result.isValid).toBe(true);
+    expect(result.reason).toBeNull();
   });
 
   it('should reject too long numbers for country', () => {
     const us = getCountryByCode('US');
     const result = validatePhoneNumber('415555267123456', us);
     expect(result.isValid).toBe(false);
+    expect(result.reason).toBe('too_long');
     expect(result.error).toBe('Phone number is too long (max 10 digits)');
+  });
+
+  it('should use a custom validator when provided', () => {
+    const us = getCountryByCode('US');
+    const result = validatePhoneNumber('4155552671', us, false, () => false);
+    expect(result.isValid).toBe(false);
+    expect(result.reason).toBe('invalid');
+  });
+});
+
+describe('parsePhoneValue', () => {
+  it('should parse a valid US national number', () => {
+    const us = getCountryByCode('US');
+    const parsed = parsePhoneValue('4155552671', us);
+    expect(parsed.isValid).toBe(true);
+    expect(parsed.nationalNumber).toBe('4155552671');
+    expect(parsed.e164).toBe('+14155552671');
+    expect(parsed.country?.code).toBe('US');
+  });
+
+  it('should parse international input', () => {
+    const parsed = parsePhoneValue('+442079460958');
+    expect(parsed.isValid).toBe(true);
+    expect(parsed.country?.code).toBe('GB');
+    expect(parsed.e164).toBe('+442079460958');
+  });
+
+  it('should return invalid partial input without e164', () => {
+    const us = getCountryByCode('US');
+    const parsed = parsePhoneValue('123', us);
+    expect(parsed.isValid).toBe(false);
+    expect(parsed.e164).toBeUndefined();
   });
 });
 

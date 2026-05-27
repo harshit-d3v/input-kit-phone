@@ -6,7 +6,6 @@ import { resolvePhoneInputLabels } from './labels';
 import {
   formatPhone,
   unformatPhone,
-  validatePhone,
   addDialCode,
   removeDialCode,
   filterCountries,
@@ -66,6 +65,7 @@ export function usePhoneInput(
     includeDialCode = false,
     required = false,
     validator,
+    onValidationChange,
     locale,
     labels,
   } = options;
@@ -158,16 +158,14 @@ export function usePhoneInput(
     return phone;
   }, [phone, country, includeDialCode]);
 
-  // Validation
-  const isValid = useMemo(
-    () => validatePhone(phone, country, validator),
-    [phone, country, validator]
+  const validation = useMemo(
+    () => validatePhoneNumber(phone, country, required, validator),
+    [phone, country, required, validator]
   );
 
-  const error = useMemo(
-    () => validatePhoneNumber(phone, country, required).error,
-    [phone, country, required]
-  );
+  useEffect(() => {
+    onValidationChange?.(validation);
+  }, [validation, onValidationChange]);
 
   const localizedCountry = useMemo(
     () => localizeCountry(country, locale),
@@ -293,8 +291,14 @@ export function usePhoneInput(
     onBlur?.();
   }, [onBlur]);
 
+  const getCountryOptionId = useCallback(
+    (code: string) => `phone-input-country-${code}`,
+    []
+  );
+
   const getCountryOptionProps = useCallback(
     (optionCountry: Country, index: number) => ({
+      id: getCountryOptionId(optionCountry.code),
       role: 'option' as const,
       'aria-selected': optionCountry.code === country?.code,
       onClick: () => selectCountry(optionCountry),
@@ -310,7 +314,7 @@ export function usePhoneInput(
       },
       tabIndex: index === 0 ? 0 : -1,
     }),
-    [closeDropdown, country?.code, selectCountry]
+    [closeDropdown, country?.code, getCountryOptionId, selectCountry]
   );
 
   return {
@@ -319,8 +323,9 @@ export function usePhoneInput(
     value: phone,
     fullPhone,
     country: localizedCountry,
-    isValid,
-    error,
+    isValid: validation.isValid,
+    validationReason: validation.reason,
+    error: validation.error,
     isOpen,
     searchQuery,
     labels: resolvedLabels,
@@ -348,7 +353,7 @@ export function usePhoneInput(
       inputMode: 'tel',
       autoComplete: 'tel',
       placeholder: getPlaceholder(country),
-      'aria-invalid': phone ? !isValid : undefined,
+      'aria-invalid': phone ? !validation.isValid : undefined,
     },
     countryButtonProps: {
       onClick: toggleDropdown,
@@ -359,13 +364,14 @@ export function usePhoneInput(
     countrySelectorProps: {
       onClick: toggleDropdown,
       'aria-expanded': isOpen,
-      'aria-haspopup': true,
+      'aria-haspopup': 'listbox',
       'aria-label': resolvedLabels.countryButtonAriaLabel,
     },
     dropdownProps: {
       role: 'listbox',
       'aria-label': resolvedLabels.countryOptionsAriaLabel,
     },
+    getCountryOptionId,
     filteredCountries,
     countries: filteredCountries,
     selectCountry,

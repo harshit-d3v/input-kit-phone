@@ -1,5 +1,8 @@
 import type { InputHTMLAttributes, RefObject } from 'react';
 import type { Country } from './countries';
+import type { ValidationReason, ValidationResult } from './utils';
+
+export type { ValidationReason, ValidationResult };
 
 export interface PhoneInputLabels {
   selectCountry: string;
@@ -37,6 +40,8 @@ export interface PhoneInputOptions {
   required?: boolean;
   /** Custom validation function */
   validator?: (phone: string, country: Country | undefined) => boolean;
+  /** Called when validation state changes */
+  onValidationChange?: (state: ValidationResult) => void;
   /** Locale used for localized country names */
   locale?: string | readonly string[];
   /** UI label overrides */
@@ -52,6 +57,8 @@ export interface PhoneInputState {
   country: Country | undefined;
   /** Whether the phone is valid */
   isValid: boolean;
+  /** Structured validation reason */
+  validationReason: ValidationReason;
   /** Whether the dropdown is open */
   isOpen: boolean;
   /** Search query for country search */
@@ -107,13 +114,14 @@ export interface UsePhoneInputReturn extends PhoneInputState, PhoneInputActions 
   countrySelectorProps: {
     onClick: () => void;
     'aria-expanded': boolean;
-    'aria-haspopup': true;
+    'aria-haspopup': 'listbox';
     'aria-label': string;
   };
   /** Props for a country options list */
   dropdownProps: {
     role: 'listbox';
     'aria-label': string;
+    'aria-activedescendant'?: string;
   };
   /** Filtered list of countries based on search */
   filteredCountries: Country[];
@@ -121,8 +129,11 @@ export interface UsePhoneInputReturn extends PhoneInputState, PhoneInputActions 
   countries: Country[];
   /** Select a country from the list */
   selectCountry: (country: Country) => void;
+  /** Stable id for a country listbox option (pairs with `dropdownProps` / `aria-activedescendant`) */
+  getCountryOptionId: (code: string) => string;
   /** Props for a country option in a custom list */
   getCountryOptionProps: (country: Country, index: number) => {
+    id: string;
     role: 'option';
     'aria-selected': boolean;
     onClick: () => void;
@@ -136,7 +147,7 @@ export interface PhoneInputProps extends PhoneInputOptions {
   value?: string;
   /** Default value */
   defaultValue?: string;
-  /** Change handler - receives full phone number */
+  /** Change handler — national digits by default; includes dial code when `includeDialCode` is true */
   onChange?: (phone: string, country: Country | undefined) => void;
   /** @deprecated Country change handler retained for compatibility */
   onCountryChange?: (country: Country | undefined) => void;

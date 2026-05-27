@@ -1,8 +1,32 @@
 import type { Country } from './countries';
-import { countries, detectCountryFromPhone } from './countries';
-import { AsYouType, isPossiblePhoneNumber, isValidPhoneNumber, validatePhoneNumberLength as validateLength, type CountryCode } from 'libphonenumber-js';
+import { countries, detectCountryFromPhone, getCountryByCode } from './countries';
+import {
+  AsYouType,
+  isPossiblePhoneNumber,
+  isValidPhoneNumber,
+  parsePhoneNumberFromString,
+  validatePhoneNumberLength as validateLength,
+  type CountryCode,
+} from 'libphonenumber-js';
 
 type MaybeCountry = Country | null | undefined;
+
+export type ValidationReason = 'required' | 'too_short' | 'too_long' | 'invalid' | null;
+
+export interface ValidationResult {
+  isValid: boolean;
+  reason: ValidationReason;
+  message: string | null;
+  /** Alias for `message` (compatibility) */
+  error: string | null;
+}
+
+export interface ParsedPhoneValue {
+  country: Country | undefined;
+  nationalNumber: string;
+  e164: string | undefined;
+  isValid: boolean;
+}
 
 function normalizePhoneInput(phone: string): string {
   const trimmed = phone.trim();
@@ -247,31 +271,76 @@ export function getNationalNumber(phone: string, country?: MaybeCountry): string
   return detectedCountry ? removeDialCode(phone, detectedCountry) : cleanPhone(phone);
 }
 
+function validationFailure(
+  reason: Exclude<ValidationReason, null>,
+  message: string
+): ValidationResult {
+  return { isValid: false, reason, message, error: message };
+}
+
+function validationSuccess(): ValidationResult {
+  return { isValid: true, reason: null, message: null, error: null };
+}
+
 export function validatePhoneNumber(
   phone: string,
   country?: MaybeCountry,
-  required = false
-): { isValid: boolean; error: string | null } {
+  required = false,
+  customValidator?: (phone: string, country: Country | undefined) => boolean
+): ValidationResult {
   const digits = cleanPhone(phone);
   if (!digits) {
     return required
-      ? { isValid: false, error: 'Phone number is required' }
-      : { isValid: true, error: null };
+      ? validationFailure('required', 'Phone number is required')
+      : validationSuccess();
   }
 
   const maxDigits = getMaxNationalDigits(country);
   const nationalDigits = country ? cleanPhone(removeDialCode(phone, country)) : digits;
 
   if (nationalDigits.length < 7) {
-    return { isValid: false, error: 'Phone number is too short' };
+    return validationFailure('too_short', 'Phone number is too short');
   }
 
   if (maxDigits && nationalDigits.length > maxDigits) {
-    return { isValid: false, error: `Phone number is too long (max ${maxDigits} digits)` };
+    return validationFailure(
+      'too_long',
+      `Phone number is too long (max ${maxDigits} digits)`
+    );
   }
 
-  const isValid = validatePhone(phone, country);
-  return isValid ? { isValid: true, error: null } : { isValid: false, error: 'Invalid phone number' };
+  const isValid = customValidator
+    ? customValidator(phone, country ?? undefined)
+    : validatePhone(phone, country);
+
+  return isValid ? validationSuccess() : validationFailure('invalid', 'Invalid phone number');
+}
+
+export function parsePhoneValue(phone: string, country?: MaybeCountry): ParsedPhoneValue {
+  const countryCode = getCountryCode(country);
+  const normalized = normalizePhoneInput(phone);
+  const parsed = normalized.startsWith('+')
+    ? parsePhoneNumberFromString(normalized)
+    : parsePhoneNumberFromString(cleanPhone(normalized), countryCode);
+
+  if (!parsed) {
+    const nationalNumber = country ? removeDialCode(phone, country) : cleanPhone(phone);
+    return {
+      country: country ?? undefined,
+      nationalNumber,
+      e164: undefined,
+      isValid: false,
+    };
+  }
+
+  const parsedCountry = parsed.country ? getCountryByCode(parsed.country) : country ?? undefined;
+
+  return {
+    country: parsedCountry,
+    nationalNumber: parsed.nationalNumber,
+    e164: parsed.isValid() ? parsed.number : undefined,
+    isValid: parsed.isValid(),
+  };
 }
 
 export function isPhoneNumberComplete(phone: string, country?: MaybeCountry): boolean {

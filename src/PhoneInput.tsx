@@ -81,6 +81,7 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
       ...options
     } = props;
 
+    const containerRef = useRef<HTMLDivElement | null>(null);
     const inputRef = useRef<HTMLInputElement | null>(null);
     const optionRefs = useRef<Array<HTMLLIElement | null>>([]);
     const [highlightedIndex, setHighlightedIndex] = useState(0);
@@ -89,6 +90,7 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
     const {
       inputProps,
       countryButtonProps,
+      dropdownProps,
       country,
       filteredCountries,
       isOpen,
@@ -100,6 +102,7 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
       clear,
       openDropdown,
       closeDropdown,
+      getCountryOptionId,
       labels,
     } = usePhoneInput({
       value,
@@ -170,6 +173,34 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
     }, [selectCountry, filteredCountries.length, closeDropdown]);
 
     useEffect(() => {
+      if (!isOpen) {
+        return;
+      }
+
+      const handlePointerDown = (event: MouseEvent) => {
+        const target = event.target as Node | null;
+        if (containerRef.current && target && !containerRef.current.contains(target)) {
+          closeDropdown();
+        }
+      };
+
+      const handleFocusIn = (event: FocusEvent) => {
+        const target = event.target as Node | null;
+        if (containerRef.current && target && !containerRef.current.contains(target)) {
+          closeDropdown();
+        }
+      };
+
+      document.addEventListener('mousedown', handlePointerDown);
+      document.addEventListener('focusin', handleFocusIn);
+
+      return () => {
+        document.removeEventListener('mousedown', handlePointerDown);
+        document.removeEventListener('focusin', handleFocusIn);
+      };
+    }, [isOpen, closeDropdown]);
+
+    useEffect(() => {
       if (filteredCountries.length === 0) {
         if (highlightedIndex !== 0) {
           setHighlightedIndex(0);
@@ -193,9 +224,12 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
       close: closeDropdown,
     }));
 
+    const activeCountry = filteredCountries[highlightedIndex];
+    const activeDescendantId = activeCountry ? getCountryOptionId(activeCountry.code) : undefined;
+
     // Render default UI
     return (
-      <div className={containerClassName} data-valid={isValid}>
+      <div ref={containerRef} className={containerClassName} data-valid={isValid}>
         {/* Country Selector Button */}
         <button
           {...countryButtonProps}
@@ -251,10 +285,16 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
             )}
 
             {/* Country List */}
-            <ul className="phone-input-country-list" id={listboxId} role="listbox" aria-label={labels.countryOptionsAriaLabel}>
+            <ul
+              {...dropdownProps}
+              className="phone-input-country-list"
+              id={listboxId}
+              aria-activedescendant={activeDescendantId}
+            >
               {filteredCountries.map((c, index) => (
                 <li
                   key={c.code}
+                  id={getCountryOptionId(c.code)}
                   ref={(element) => {
                     optionRefs.current[index] = element;
                   }}

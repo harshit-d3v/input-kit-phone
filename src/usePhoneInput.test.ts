@@ -161,7 +161,7 @@ describe('usePhoneInput', () => {
     
     expect(result.current.countrySelectorProps).toBeDefined();
     expect(result.current.countrySelectorProps['aria-expanded']).toBe(false);
-    expect(result.current.countrySelectorProps['aria-haspopup']).toBe(true);
+    expect(result.current.countrySelectorProps['aria-haspopup']).toBe('listbox');
   });
 
   it('should provide dropdown props', () => {
@@ -246,6 +246,25 @@ describe('usePhoneInput', () => {
     rerender({ value: '4155552671' });
     
     expect(result.current.value).toBe('4155552671');
+  });
+
+  it('should call onValidationChange when validation changes', () => {
+    const onValidationChange = vi.fn();
+    const { result } = renderHook(() =>
+      usePhoneInput({ onValidationChange, required: true })
+    );
+
+    expect(onValidationChange).toHaveBeenCalledWith(
+      expect.objectContaining({ isValid: false, reason: 'required' })
+    );
+
+    act(() => {
+      result.current.setValue('4155552671');
+    });
+
+    expect(onValidationChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ isValid: true, reason: null })
+    );
   });
 
   it('should include dial code when includeDialCode is true', () => {

@@ -9,12 +9,13 @@ export {
   getCountryByCode,
   getCountryByDialCode,
   getCountriesByDialCode,
+  getCountryOptions,
   detectCountryFromPhone,
   getLocalizedCountryName,
   localizeCountry,
   localizeCountries,
 } from './countries';
-export type { Country } from './countries';
+export type { Country, CountryOption, GetCountryOptionsParams } from './countries';
 
 // Labels
 export { DEFAULT_PHONE_INPUT_LABELS, resolvePhoneInputLabels } from './labels';
@@ -39,6 +40,7 @@ export {
   parseToE164,
   getNationalNumber,
   validatePhoneNumber,
+  parsePhoneValue,
   isPhoneNumberComplete,
   formatAsYouType,
   normalizePhoneNumber,
@@ -46,6 +48,7 @@ export {
   getCountryDisplayLabel,
   limitInputLength,
 } from './utils';
+export type { ValidationReason, ValidationResult, ParsedPhoneValue } from './utils';
 
 // Types
 export type {

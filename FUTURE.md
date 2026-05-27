@@ -1,66 +1,66 @@
 # Future Plan
 
-This package is stable enough for a patch release. Future work should focus on making it easier to use in production forms, safer to maintain, and clearer for consumers.
+`@input-kit/phone` 0.2.0 shipped structured validation, Bun tooling, CI, integration docs, country hardening, and `PhoneInput` UX fixes. See [CHANGELOG.md](./CHANGELOG.md) for release history.
 
-## Near Term
+## Maintainer checklist
 
-- Add a small styled example for React apps, while keeping the core package headless.
-- Add docs for common integrations: React Hook Form, Formik, Zod, and plain controlled inputs.
-- Add examples for India, US, UK, and shared calling-code regions like `+1`.
-- Add a changelog so every npm release has a short human-readable summary.
-- Add a GitHub Actions workflow for `npm test`, `npm run typecheck`, and `npm run build`.
+Private repo; **Bun** is the standard local and CI toolchain (`bun.lock`, `packageManager` in `package.json`).
 
-## API Improvements
-
-- Keep the current API stable and avoid removing compatibility aliases without a major version.
-- Add clearer validation helpers that return structured reasons such as `required`, `too_short`, `too_long`, and `invalid`.
-- Add an optional `onValidationChange` callback for form libraries.
-- Add a helper for converting phone values into `{ country, nationalNumber, e164, isValid }`.
-- Document the difference between `phone`, `fullPhone`, `dialCode`, and E.164 output.
-
-## Country Data
-
-- Keep country coverage aligned with `libphonenumber-js`.
-- Add tests for shared calling codes, including `+1`, `+44`, `+61`, `+590`, and `+262`.
-- Keep fallback metadata for supported territories that are incomplete in `world-countries`.
-- Add a country-list snapshot or checksum test so accidental coverage drops are easy to catch.
-- Consider exposing a lightweight `getCountryOptions()` helper for sorted UI lists.
-
-## Demo And Docs
-
-- Replace the plain HTML demo with a Vite example app if the demo grows.
-- Keep the current static HTML demo for quick browser checks.
-- Add a README section for migration notes from `0.1.x`.
-- Add screenshots or short GIFs showing search, auto-detection, validation, and formatting.
-- Add a “Known behavior” section for cases where formatting follows `libphonenumber-js`.
-
-## Release Hygiene
-
-- Publish patch versions for fixes and country-data corrections.
-- Use minor versions for new public APIs or meaningful new features.
-- Do not skip versions unless a publish mistake requires it.
-- Before every npm publish, run:
+Before every npm publish:
 
 ```bash
-npm test
-npm run typecheck
-npm run build
-npm pack --dry-run
+bun install
+bun run test
+bun run typecheck
+bun run build
+bun pm pack
 ```
 
-- After publish, verify:
+After publish:
 
 ```bash
 npm view @input-kit/phone version
 npm install @input-kit/phone@latest
 ```
 
-## Possible Larger Features
+- Do not remove compatibility aliases without a **major** version.
+- Country coverage must stay aligned with `libphonenumber-js`; keep AC/TA/BQ-style fallbacks.
+- Patch = fixes and data corrections; minor = backward-compatible APIs; do not skip versions unless correcting a publish mistake.
+- Keep `test-demo/` for quick browser QA.
 
-- Optional default styles package or CSS file.
-- Better accessibility docs and keyboard-navigation examples.
-- Locale-aware country names in examples.
-- Virtualized country list support for custom UIs.
-- Optional flag rendering strategy for environments where emoji flags are not ideal.
-- First-party adapters for popular form libraries.
+## Near term (0.3.x)
 
+- `lockCountry` or paste-only auto-detect so manual country selection is not overridden while typing
+- Dropdown focus trap and optional list typeahead without a search field
+- More UI label locales in `labels.ts`
+- Richer `examples/` (light/dark) if the styled example grows
+- Prep performance work: lazy country list / memoization before virtualization
+
+## API (minor, backward compatible)
+
+- Opt-in `defaultCountry` from `navigator.language` (SSR-safe)
+- Evaluate `phoneSchema()` for Zod (docs vs `@input-kit/phone/zod` subpath)
+- Document mapping `ValidationReason` to i18n strings in more locales
+
+## Country data
+
+- Re-run checksum baseline when `libphonenumber-js` region set changes
+- Renovate/Dependabot for `libphonenumber-js` and `world-countries`, gated by the country-code checksum test
+
+## Demo and docs
+
+- Screenshots or short GIFs (search, auto-detect, validation) for README
+- Optional Playwright screenshots on `test-demo` in private CI
+
+## Quality and tooling
+
+- More tests: caret edges, controlled + `includeDialCode` matrix
+- ESLint stricter rules only if they stay low-noise for library code
+
+## Possible larger features (1.x or separate packages)
+
+- `@input-kit/phone/styles` optional CSS package
+- Virtualized country list primitive
+- Non-emoji flags (SVG/sprite)
+- Thin React Hook Form adapter package only if [docs/integrations.md](./docs/integrations.md) is not enough
+- Optional `metadata` export for non-React consumers

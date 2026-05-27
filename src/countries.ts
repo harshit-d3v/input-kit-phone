@@ -179,6 +179,61 @@ export function getCountryByDialCode(dialCode: string): Country | undefined {
   return getCountriesByDialCode(dialCode)[0];
 }
 
+export interface CountryOption {
+  value: string;
+  label: string;
+  dialCode: string;
+  flag: string;
+}
+
+export interface GetCountryOptionsParams {
+  locale?: string | readonly string[];
+  preferredCountries?: string[];
+  excludeCountries?: string[];
+  onlyCountries?: string[];
+}
+
+export function getCountryOptions(params: GetCountryOptionsParams = {}): CountryOption[] {
+  let list = countries;
+
+  if (params.onlyCountries?.length) {
+    const allowed = new Set(params.onlyCountries.map((code) => code.toUpperCase()));
+    list = list.filter((country) => allowed.has(country.code));
+  }
+
+  if (params.excludeCountries?.length) {
+    const excluded = new Set(params.excludeCountries.map((code) => code.toUpperCase()));
+    list = list.filter((country) => !excluded.has(country.code));
+  }
+
+  list = localizeCountries(list, params.locale);
+
+  if (params.preferredCountries?.length) {
+    const preferred = params.preferredCountries.map((code) => code.toUpperCase());
+    list = [...list].sort((left, right) => {
+      const leftIndex = preferred.indexOf(left.code);
+      const rightIndex = preferred.indexOf(right.code);
+      if (leftIndex !== -1 && rightIndex !== -1) {
+        return leftIndex - rightIndex;
+      }
+      if (leftIndex !== -1) {
+        return -1;
+      }
+      if (rightIndex !== -1) {
+        return 1;
+      }
+      return (left.displayName ?? left.name).localeCompare(right.displayName ?? right.name);
+    });
+  }
+
+  return list.map((country) => ({
+    value: country.code,
+    label: `${country.displayName ?? country.name} (${country.dialCode})`,
+    dialCode: country.dialCode,
+    flag: country.flag,
+  }));
+}
+
 export function detectCountryFromPhone(phone: string): Country | undefined {
   const trimmed = phone.trim();
 
