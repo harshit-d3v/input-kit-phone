@@ -1,8 +1,14 @@
 # @input-kit/phone
 
+[![npm version](https://img.shields.io/npm/v/%40input-kit%2Fphone)](https://www.npmjs.com/package/@input-kit/phone)
+[![npm downloads](https://img.shields.io/npm/dm/%40input-kit%2Fphone)](https://www.npmjs.com/package/@input-kit/phone)
+[![CI](https://github.com/harshit-d3v/input-kit-phone/actions/workflows/ci.yml/badge.svg)](https://github.com/harshit-d3v/input-kit-phone/actions/workflows/ci.yml)
+[![license](https://img.shields.io/npm/l/%40input-kit%2Fphone)](https://github.com/harshit-d3v/input-kit-phone/blob/main/LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/harshit-d3v/input-kit-phone?style=social)](https://github.com/harshit-d3v/input-kit-phone)
+
 Headless React phone input with a complete world country-code dataset, searchable country selection, and `libphonenumber-js` powered formatting and validation.
 
-Source, issues, and contributions: **[github.com/harshit-d3v/input-kit-phone](https://github.com/harshit-d3v/input-kit-phone)**
+Source, issues, and contributions: **[github.com/harshit-d3v/input-kit-phone](https://github.com/harshit-d3v/input-kit-phone)** — if this package saves you time, a ⭐ there helps others find it.
 
 ## Latest update
 
