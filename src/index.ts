@@ -42,6 +42,7 @@ export {
   validatePhoneNumber,
   parsePhoneValue,
   isPhoneNumberComplete,
+  isPhoneTooLong,
   formatAsYouType,
   normalizePhoneNumber,
   phoneNumbersEqual,

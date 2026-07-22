@@ -51,6 +51,49 @@ function getMaxNationalDigits(country: MaybeCountry): number | undefined {
   return country?.format?.replace(/[^#]/g, '').length;
 }
 
+type LengthValidationStatus = ReturnType<typeof validateLength>;
+
+/**
+ * Check number length against libphonenumber metadata (handles
+ * variable-length countries correctly, unlike format-based guesses).
+ */
+function getLengthValidationStatus(phone: string, country: MaybeCountry): LengthValidationStatus {
+  const normalized = normalizePhoneInput(phone);
+
+  if (normalized.startsWith('+')) {
+    return validateLength(normalized);
+  }
+
+  const countryCode = getCountryCode(country);
+  if (!countryCode) {
+    return undefined;
+  }
+
+  return validateLength(cleanPhone(normalized), countryCode);
+}
+
+/**
+ * Whether the number already exceeds the maximum possible length for the
+ * country (per libphonenumber metadata), with an E.164 digit-count fallback
+ * when metadata cannot resolve the number.
+ */
+export function isPhoneTooLong(phone: string, country?: MaybeCountry): boolean {
+  const normalized = normalizePhoneInput(phone);
+  const digits = cleanPhone(normalized);
+
+  if (!digits) {
+    return false;
+  }
+
+  if (getLengthValidationStatus(phone, country) === 'TOO_LONG') {
+    return true;
+  }
+
+  // E.164 caps national significant numbers at 15 digits (+ up to 3 for the country code).
+  const maxDigits = normalized.startsWith('+') ? 18 : 15;
+  return digits.length > maxDigits;
+}
+
 /**
  * Remove all non-digit characters from phone number
  */
@@ -246,7 +289,7 @@ export function formatPhoneNumber(
 
   const nationalNumber = isInternationalFormat(phone) ? removeDialCode(phone, country) : phone;
   if (!country && format === 'national') {
-    return cleanPhone(nationalNumber).slice(0, 9).replace(/(\d{3})(?=\d)/g, '$1 ').trim();
+    return cleanPhone(nationalNumber).replace(/(\d{3})(?=\d)/g, '$1 ').trim();
   }
 
   const formattedNational = formatPhone(nationalNumber, country);
@@ -295,18 +338,17 @@ export function validatePhoneNumber(
       : validationSuccess();
   }
 
-  const maxDigits = getMaxNationalDigits(country);
+  const lengthStatus = getLengthValidationStatus(phone, country);
   const nationalDigits = country ? cleanPhone(removeDialCode(phone, country)) : digits;
 
-  if (nationalDigits.length < 7) {
+  // Prefer libphonenumber metadata; fall back to a loose heuristic when the
+  // number cannot be resolved to a country.
+  if (lengthStatus === 'TOO_SHORT' || (lengthStatus === undefined && nationalDigits.length < 7)) {
     return validationFailure('too_short', 'Phone number is too short');
   }
 
-  if (maxDigits && nationalDigits.length > maxDigits) {
-    return validationFailure(
-      'too_long',
-      `Phone number is too long (max ${maxDigits} digits)`
-    );
+  if (lengthStatus === 'TOO_LONG' || isPhoneTooLong(phone, country)) {
+    return validationFailure('too_long', 'Phone number is too long');
   }
 
   const isValid = customValidator

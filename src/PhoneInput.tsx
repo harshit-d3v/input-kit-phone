@@ -165,6 +165,18 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
             optionRefs.current[nextIndex]?.focus();
           }
           break;
+        case 'Home':
+          e.preventDefault();
+          setHighlightedIndex(0);
+          optionRefs.current[0]?.focus();
+          break;
+        case 'End': {
+          e.preventDefault();
+          const lastIndex = filteredCountries.length - 1;
+          setHighlightedIndex(lastIndex);
+          optionRefs.current[lastIndex]?.focus();
+          break;
+        }
         case 'Escape':
           e.preventDefault();
           closeDropdown();
@@ -224,8 +236,17 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
       close: closeDropdown,
     }));
 
-    const activeCountry = filteredCountries[highlightedIndex];
-    const activeDescendantId = activeCountry ? getCountryOptionId(activeCountry.code) : undefined;
+    // Handle keyboard navigation from the search input into the list
+    const handleSearchKeyDown = useCallback((e: React.KeyboardEvent) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setHighlightedIndex(0);
+        optionRefs.current[0]?.focus();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        closeDropdown();
+      }
+    }, [closeDropdown]);
 
     // Render default UI
     return (
@@ -276,6 +297,7 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
                   placeholder={labels.countrySearchPlaceholder}
                   autoFocus
                   aria-controls={listboxId}
@@ -285,11 +307,12 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
             )}
 
             {/* Country List */}
+            {/* Roving focus is the single focus model here; aria-activedescendant
+                is intentionally not set alongside it. */}
             <ul
               {...dropdownProps}
               className="phone-input-country-list"
               id={listboxId}
-              aria-activedescendant={activeDescendantId}
             >
               {filteredCountries.map((c, index) => (
                 <li

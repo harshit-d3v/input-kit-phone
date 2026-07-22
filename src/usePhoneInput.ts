@@ -4,14 +4,21 @@ import type { Country } from './countries';
 import { countries, detectCountryFromPhone, getCountryByCode, localizeCountries, localizeCountry } from './countries';
 import { resolvePhoneInputLabels } from './labels';
 import {
+  cleanPhone,
   formatPhone,
   unformatPhone,
   addDialCode,
   removeDialCode,
   filterCountries,
   getPlaceholder,
+  isPhoneTooLong,
   validatePhoneNumber,
 } from './utils';
+
+// useLayoutEffect warns when rendering on the server (e.g. Next.js SSR);
+// fall back to useEffect there — the caret restoration it drives is a
+// browser-only concern anyway.
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 function countDigitsBeforePosition(value: string, position: number) {
   return value.slice(0, position).replace(/\D/g, '').length;
@@ -77,6 +84,9 @@ export function usePhoneInput(
   const inputRef = useRef<HTMLInputElement>(null);
   const pendingCaretDigitIndexRef = useRef<number | null>(null);
   const previousDefaultCountryRef = useRef(defaultCountry);
+  // Tracks whether the current country was explicitly chosen by the user, so
+  // auto-detect does not override a deliberate selection (see effect below).
+  const manualCountrySelectionRef = useRef(false);
 
   // Filter available countries
   const availableCountries = useMemo(() => {
@@ -126,21 +136,41 @@ export function usePhoneInput(
       ? availableCountries.some((candidate) => candidate.code === country.code)
       : false;
 
-    if (nextCountry && (defaultCountryChanged || !countryStillAvailable)) {
+    if (nextCountry && (defaultCountryChanged || !countryStillAvailable) && nextCountry.code !== country?.code) {
       setCountry(nextCountry);
+      onCountryChange?.(getOutputCountry(nextCountry));
     }
-  }, [defaultCountry, availableCountries, country]);
+  }, [defaultCountry, availableCountries, country, onCountryChange, getOutputCountry]);
 
   // Auto-detect country from phone
   useEffect(() => {
-    if (resolvedAutoDetect && phone) {
-      const detected = detectCountryFromPhone(phone);
-      if (detected && availableCountries.some((candidate) => candidate.code === detected.code) && detected.code !== country?.code) {
-        setCountry(detected);
-        onCountryChange?.(getOutputCountry(detected));
-      }
+    if (!resolvedAutoDetect || !phone) {
+      return;
     }
-  }, [availableCountries, resolvedAutoDetect, phone, country?.code, onCountryChange, getOutputCountry]);
+
+    const detected = detectCountryFromPhone(phone);
+    if (!detected || detected.code === country?.code) {
+      return;
+    }
+
+    if (!availableCountries.some((candidate) => candidate.code === detected.code)) {
+      return;
+    }
+
+    // Respect a manual selection while it still explains the number's dial
+    // code — e.g. a +1 number must not flip a manually chosen CA back to US.
+    const digits = cleanPhone(phone);
+    const manualSelectionStillMatches =
+      manualCountrySelectionRef.current &&
+      country?.dialCodes.some((dialCode) => digits.startsWith(dialCode.replace('+', '')));
+    if (manualSelectionStillMatches) {
+      return;
+    }
+
+    manualCountrySelectionRef.current = false;
+    setCountry(detected);
+    onCountryChange?.(getOutputCountry(detected));
+  }, [availableCountries, resolvedAutoDetect, phone, country, onCountryChange, getOutputCountry]);
 
   // Format phone number
   const formattedPhone = useMemo(() => {
@@ -178,7 +208,7 @@ export function usePhoneInput(
     [localizedCountries, searchQuery, preferredCountries]
   );
 
-  useLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const nextDigitIndex = pendingCaretDigitIndexRef.current;
     const input = inputRef.current;
 
@@ -215,6 +245,7 @@ export function usePhoneInput(
     (code: string) => {
       const newCountry = getCountryByCode(code);
       if (newCountry) {
+        manualCountrySelectionRef.current = true;
         setCountry(newCountry);
         onCountryChange?.(getOutputCountry(newCountry));
         onChange?.(
@@ -230,6 +261,7 @@ export function usePhoneInput(
   const selectCountry = useCallback(
     (selectedCountry: Country) => {
       const rawCountry = getCountryByCode(selectedCountry.code) ?? selectedCountry;
+      manualCountrySelectionRef.current = true;
       setCountry(rawCountry);
       setIsOpen(false);
       setSearchQuery('');
@@ -275,10 +307,25 @@ export function usePhoneInput(
       const rawValue = event.target.value;
       const caretPosition = event.target.selectionStart ?? rawValue.length;
       const unformatted = rawValue.trim().startsWith('+') ? `+${rawValue.replace(/\D/g, '')}` : unformatPhone(rawValue);
+
+      // Cap input at the maximum possible length for the selected country
+      // (libphonenumber metadata). Deletions are always allowed.
+      if (
+        cleanPhone(unformatted).length > cleanPhone(phone).length &&
+        isPhoneTooLong(unformatted, country)
+      ) {
+        event.target.value = formattedPhone;
+        const restoredCaret = Math.min(Math.max(caretPosition - 1, 0), formattedPhone.length);
+        if (typeof event.target.setSelectionRange === 'function') {
+          event.target.setSelectionRange(restoredCaret, restoredCaret);
+        }
+        return;
+      }
+
       pendingCaretDigitIndexRef.current = countDigitsBeforePosition(rawValue, caretPosition);
       setPhone(unformatted);
     },
-    [setPhone]
+    [setPhone, phone, country, formattedPhone]
   );
 
   // Handle focus
@@ -353,7 +400,7 @@ export function usePhoneInput(
       inputMode: 'tel',
       autoComplete: 'tel',
       placeholder: getPlaceholder(country),
-      'aria-invalid': phone ? !validation.isValid : undefined,
+      'aria-invalid': validation.isValid ? undefined : true,
     },
     countryButtonProps: {
       onClick: toggleDropdown,

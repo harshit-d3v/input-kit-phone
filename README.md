@@ -2,7 +2,11 @@
 
 Headless React phone input with a complete world country-code dataset, searchable country selection, and `libphonenumber-js` powered formatting and validation.
 
+Source, issues, and contributions: **[github.com/harshit-d3v/input-kit-phone](https://github.com/harshit-d3v/input-kit-phone)**
+
 ## Latest update
+
+**0.3.0** — auto-detect respects manual country selection, metadata-based length validation (no more false `too_long` in variable-length countries), input capped at the country's maximum length, `isPhoneTooLong()`, SSR-safe caret handling, dropdown `Home`/`End` + search→list keyboard navigation, unminified published output.
 
 **0.2.2** — npm README cleanup: release notes stay inline; removed pointers to repo-only markdown files.
 
@@ -136,6 +140,10 @@ bun run lint
 ```
 
 Manual browser check: `test-demo/` (static HTML).
+
+## Contributing
+
+Bug reports, feature requests, and pull requests are welcome — see [CONTRIBUTING.md](https://github.com/harshit-d3v/input-kit-phone/blob/main/CONTRIBUTING.md). In short: open an issue with a minimal reproduction (include the exact phone number and country for formatting/validation bugs), and for PRs run `bun run test`, `bun run typecheck`, and `bun run lint` before submitting.
 
 ## Exports
 

@@ -267,6 +267,74 @@ describe('usePhoneInput', () => {
     );
   });
 
+  it('should not override a manual country selection for a shared dial code', () => {
+    const { result } = renderHook(() =>
+      usePhoneInput({ defaultValue: '+14155552671' })
+    );
+
+    // +1 auto-detects US initially
+    expect(result.current.country?.code).toBe('US');
+
+    act(() => {
+      result.current.setCountry('CA');
+    });
+
+    // Manual choice of Canada must survive re-renders even though +1 detects US
+    expect(result.current.country?.code).toBe('CA');
+  });
+
+  it('should still auto-detect when the dial code changes after manual selection', () => {
+    const { result } = renderHook(() => usePhoneInput());
+
+    act(() => {
+      result.current.setCountry('CA');
+    });
+
+    act(() => {
+      result.current.setPhone('+442079460958');
+    });
+
+    expect(result.current.country?.code).toBe('GB');
+  });
+
+  it('should notify onCountryChange when defaultCountry prop changes', () => {
+    const onCountryChange = vi.fn();
+    const { rerender } = renderHook(
+      ({ defaultCountry }) => usePhoneInput({ defaultCountry, onCountryChange }),
+      { initialProps: { defaultCountry: 'US' } }
+    );
+
+    rerender({ defaultCountry: 'GB' });
+
+    expect(onCountryChange).toHaveBeenCalled();
+    expect(onCountryChange.mock.calls.at(-1)?.[0]?.code).toBe('GB');
+  });
+
+  it('should reject input beyond the maximum possible length', () => {
+    const { result } = renderHook(() =>
+      usePhoneInput({ defaultValue: '4155552671', defaultCountry: 'US' })
+    );
+
+    const setSelectionRange = vi.fn();
+    act(() => {
+      result.current.inputProps.onChange?.({
+        target: {
+          value: '(415) 555-26718',
+          selectionStart: 15,
+          setSelectionRange,
+        },
+      } as unknown as React.ChangeEvent<HTMLInputElement>);
+    });
+
+    // Extra digit rejected — stored value unchanged
+    expect(result.current.phone).toBe('4155552671');
+  });
+
+  it('should set aria-invalid when required and empty', () => {
+    const { result } = renderHook(() => usePhoneInput({ required: true }));
+    expect(result.current.inputProps['aria-invalid']).toBe(true);
+  });
+
   it('should include dial code when includeDialCode is true', () => {
     const onChange = vi.fn();
     const { result } = renderHook(() =>

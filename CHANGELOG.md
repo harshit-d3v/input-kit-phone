@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-22
+
+### Added
+
+- `isPhoneTooLong(phone, country?)` — length check backed by libphonenumber metadata with an E.164 digit-cap fallback
+- Input length capping in `usePhoneInput`: typing/pasting beyond the maximum possible length for the selected country is rejected (deletions always allowed)
+- `PhoneInput` dropdown: `Home`/`End` keys, and `ArrowDown` from the search input moves focus into the country list
+
+### Fixed
+
+- Auto-detect no longer overrides a manual country selection that still matches the number's dial code (e.g. choosing Canada for a `+1` number no longer flips back to US)
+- `onCountryChange` now fires when the `defaultCountry` prop changes at runtime
+- `too_short` / `too_long` validation uses `validatePhoneNumberLength` metadata instead of a format-derived digit count — variable-length countries (e.g. DE, AT) no longer produce false `too_long` results
+- `formatPhoneNumber(phone, null, 'national')` no longer silently truncates numbers to 9 digits
+- `aria-invalid` is now set when the field is `required` and empty
+- SSR: caret restoration uses an isomorphic layout effect, removing the `useLayoutEffect` warning in server rendering (e.g. Next.js)
+
+### Changed
+
+- `too_long` validation message no longer embeds a format-derived max ("Phone number is too long")
+- `PhoneInput` listbox uses a single focus model (roving focus); `aria-activedescendant` removed
+- Published output is no longer minified (better stack traces; consumer bundlers minify anyway)
+- `main` points at the CJS build (`dist/index.cjs`) for legacy resolvers; `exports` exposes `./package.json`
+- `package.json` gained `repository` / `homepage` / `bugs` links
+- ESLint: added `eslint-plugin-react-hooks` (rules-of-hooks: error, exhaustive-deps: warn)
+
 ## [0.2.2] - 2026-05-28
 
 ### Documentation
@@ -45,7 +71,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `docs/integrations.md` for React Hook Form, Formik, Zod, and controlled inputs
 - Refreshed `FUTURE.md` for the next development phase
 
-[Unreleased]: https://github.com/input-kit/input-kit-phone/compare/v0.2.2...HEAD
-[0.2.2]: https://github.com/input-kit/input-kit-phone/releases/tag/v0.2.2
-[0.2.1]: https://github.com/input-kit/input-kit-phone/releases/tag/v0.2.1
-[0.2.0]: https://github.com/input-kit/input-kit-phone/releases/tag/v0.2.0
+[Unreleased]: https://github.com/harshit-d3v/input-kit-phone/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/harshit-d3v/input-kit-phone/releases/tag/v0.3.0
+[0.2.2]: https://github.com/harshit-d3v/input-kit-phone/releases/tag/v0.2.2
+[0.2.1]: https://github.com/harshit-d3v/input-kit-phone/releases/tag/v0.2.1
+[0.2.0]: https://github.com/harshit-d3v/input-kit-phone/releases/tag/v0.2.0

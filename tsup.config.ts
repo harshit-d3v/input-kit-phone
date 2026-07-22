@@ -7,7 +7,9 @@ export default defineConfig({
   splitting: false,
   sourcemap: true,
   clean: true,
-  minify: true,
+  // Ship readable output: consumers' bundlers minify anyway, and unminified
+  // code gives usable stack traces in issue reports.
+  minify: false,
   treeshake: true,
   external: ['react', 'react-dom'],
 });

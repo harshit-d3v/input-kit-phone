@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   stripNonDigits,
   isInternationalFormat,
+  isPhoneTooLong,
   extractDialCode,
   detectCountry,
   formatPhoneNumber,
@@ -118,9 +119,9 @@ describe('formatPhoneNumber', () => {
     expect(formatPhoneNumber('', us)).toBe('');
   });
 
-  it('should format without country', () => {
+  it('should format without country and keep all digits', () => {
     const formatted = formatPhoneNumber('1234567890', null);
-    expect(formatted).toBe('123 456 789');
+    expect(formatted).toBe('123 456 789 0');
   });
 });
 
@@ -186,7 +187,14 @@ describe('validatePhoneNumber', () => {
     const result = validatePhoneNumber('415555267123456', us);
     expect(result.isValid).toBe(false);
     expect(result.reason).toBe('too_long');
-    expect(result.error).toBe('Phone number is too long (max 10 digits)');
+    expect(result.error).toBe('Phone number is too long');
+  });
+
+  it('should not flag valid longer numbers in variable-length countries', () => {
+    const de = getCountryByCode('DE');
+    // Valid German number with 11 national digits (longer than the example format)
+    const result = validatePhoneNumber('015123456789', de);
+    expect(result.reason).not.toBe('too_long');
   });
 
   it('should use a custom validator when provided', () => {
@@ -288,6 +296,28 @@ describe('getCountryDisplayLabel', () => {
   it('should exclude dial code when specified', () => {
     const us = getCountryByCode('US')!;
     expect(getCountryDisplayLabel(us, false)).toBe('🇺🇸 United States');
+  });
+});
+
+describe('isPhoneTooLong', () => {
+  it('should detect numbers exceeding the country maximum', () => {
+    const us = getCountryByCode('US');
+    expect(isPhoneTooLong('41555526712', us)).toBe(true);
+    expect(isPhoneTooLong('4155552671', us)).toBe(false);
+  });
+
+  it('should allow longer valid numbers in variable-length countries', () => {
+    const de = getCountryByCode('DE');
+    expect(isPhoneTooLong('015123456789', de)).toBe(false);
+  });
+
+  it('should fall back to the E.164 cap without a country', () => {
+    expect(isPhoneTooLong('123456789012345', null)).toBe(false);
+    expect(isPhoneTooLong('1234567890123456', null)).toBe(true);
+  });
+
+  it('should return false for empty input', () => {
+    expect(isPhoneTooLong('', null)).toBe(false);
   });
 });
 
