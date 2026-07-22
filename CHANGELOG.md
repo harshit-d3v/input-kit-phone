@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-05-28
+
+### Documentation
+
+- README cleanup for npm readers: inline Latest update only; removed links and bullets pointing at `docs/integrations.md`, GitHub `CHANGELOG.md`, and similar repo-only markdown
+- Form integrations section shortened to inline guidance (no `docs/integrations.md` pointer)
+
+## [0.2.1] - 2026-05-28
+
+### Documentation
+
+- README Latest update: inline 0.2.0 highlights; fix broken npm CHANGELOG link (point to GitHub changelog)
+
 ## [0.2.0] - 2026-05-28
 
 ### Added
@@ -32,5 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `docs/integrations.md` for React Hook Form, Formik, Zod, and controlled inputs
 - Refreshed `FUTURE.md` for the next development phase
 
-[Unreleased]: https://github.com/input-kit/input-kit-phone/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/input-kit/input-kit-phone/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/input-kit/input-kit-phone/releases/tag/v0.2.2
+[0.2.1]: https://github.com/input-kit/input-kit-phone/releases/tag/v0.2.1
 [0.2.0]: https://github.com/input-kit/input-kit-phone/releases/tag/v0.2.0

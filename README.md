@@ -4,7 +4,9 @@ Headless React phone input with a complete world country-code dataset, searchabl
 
 ## Latest update
 
-Version **0.2.0** adds structured validation, `parsePhoneValue`, `getCountryOptions`, Bun maintainer tooling, CI, integration docs, and `PhoneInput` UX improvements. See [CHANGELOG.md](./CHANGELOG.md).
+**0.2.2** — npm README cleanup: release notes stay inline; removed pointers to repo-only markdown files.
+
+**0.2.0** — structured validation (`ValidationReason`, `validatePhoneNumber`, `onValidationChange`), `parsePhoneValue`, `getCountryOptions()`, improved `PhoneInput` a11y (click-outside, listbox ARIA) and RTL tests.
 
 ## Features
 
@@ -98,7 +100,7 @@ Formatting, length checks, and validity follow **[libphonenumber-js](https://www
 
 ## Form integrations
 
-See **[docs/integrations.md](./docs/integrations.md)** for React Hook Form, Formik, Zod, and controlled-input patterns.
+Controlled `value` / `onChange` with `usePhoneInput` or `PhoneInput`. React Hook Form: wrap with `Controller` and pass `field.value`, `field.onChange`, and `field.onBlur`. Use `onValidationChange` to sync `isValid` / `message` with form errors. Submit-time checks: `parsePhoneValue(phone, country)` or `validatePhoneNumber`.
 
 ## Styled example
 
