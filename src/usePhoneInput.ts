@@ -215,6 +215,19 @@ export function usePhoneInput(
     [country, locale]
   );
 
+  // The trigger must convey its current value, not just its action. A constant
+  // aria-label wins over the element's own content (accname step 2C), so the
+  // flag and dial code rendered inside the button never reached the
+  // accessibility tree: a screen reader announced "Open country selector" and
+  // nothing else, and selecting a country changed nothing the user could hear.
+  const countryButtonAriaLabel = useMemo(
+    () =>
+      localizedCountry
+        ? `${resolvedLabels.countryButtonAriaLabel}, ${localizedCountry.name} ${localizedCountry.dialCode}`
+        : resolvedLabels.countryButtonAriaLabel,
+    [localizedCountry, resolvedLabels.countryButtonAriaLabel]
+  );
+
   // Filtered countries for dropdown
   const filteredCountries = useMemo(
     () => filterCountries(localizedCountries, searchQuery, preferredCountries),
@@ -367,7 +380,7 @@ export function usePhoneInput(
       pendingCaretDigitIndexRef.current = countDigitsBeforePosition(rawValue, caretPosition);
       setPhone(unformatted);
     },
-    [setPhone, phone, country, formattedPhone]
+    [setPhone, phone, country]
   );
 
   // Handle focus
@@ -448,13 +461,13 @@ export function usePhoneInput(
       onClick: toggleDropdown,
       'aria-expanded': isOpen,
       'aria-haspopup': 'listbox',
-      'aria-label': resolvedLabels.countryButtonAriaLabel,
+      'aria-label': countryButtonAriaLabel,
     },
     countrySelectorProps: {
       onClick: toggleDropdown,
       'aria-expanded': isOpen,
       'aria-haspopup': 'listbox',
-      'aria-label': resolvedLabels.countryButtonAriaLabel,
+      'aria-label': countryButtonAriaLabel,
     },
     dropdownProps: {
       role: 'listbox',

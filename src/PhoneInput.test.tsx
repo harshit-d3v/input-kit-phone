@@ -61,4 +61,42 @@ describe('PhoneInput', () => {
     fireEvent.mouseDown(screen.getByRole('button', { name: 'Outside' }));
     expect(screen.queryByRole('listbox')).toBeNull();
   });
+
+  it('names the country button with the selected country, not just the action', () => {
+    // A constant aria-label wins over the button's own content, so the flag and
+    // dial code inside it never reach the accessibility tree.
+    render(<PhoneInput defaultCountry="GB" />);
+
+    const button = screen.getByRole('button', { name: /country/i });
+    const name = button.getAttribute('aria-label') ?? '';
+
+    expect(name).toMatch(/United Kingdom/i);
+    expect(name).toContain('+44');
+  });
+
+  it('returns focus to the country button after selecting', () => {
+    render(<PhoneInput defaultCountry="US" searchable />);
+
+    const button = screen.getByRole('button', { name: /country/i });
+    fireEvent.click(button);
+    fireEvent.change(screen.getByLabelText(/search countries/i), {
+      target: { value: 'United Kingdom' },
+    });
+    fireEvent.click(screen.getByRole('option', { name: /united kingdom/i }));
+
+    // Without this the popup unmounts with focus inside it and the browser
+    // drops focus to <body>, so the next Tab restarts at the top of the page.
+    expect(document.activeElement).toBe(button);
+  });
+
+  it('returns focus to the country button on escape', () => {
+    render(<PhoneInput defaultCountry="US" searchable />);
+
+    const button = screen.getByRole('button', { name: /country/i });
+    fireEvent.click(button);
+    fireEvent.keyDown(screen.getByLabelText(/search countries/i), { key: 'Escape' });
+
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(document.activeElement).toBe(button);
+  });
 });

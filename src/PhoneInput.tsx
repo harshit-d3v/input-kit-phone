@@ -84,6 +84,7 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
     const containerRef = useRef<HTMLDivElement | null>(null);
     const inputRef = useRef<HTMLInputElement | null>(null);
     const optionRefs = useRef<Array<HTMLLIElement | null>>([]);
+    const countryButtonRef = useRef<HTMLButtonElement | null>(null);
     const [highlightedIndex, setHighlightedIndex] = useState(0);
     const listboxId = useId();
 
@@ -134,11 +135,20 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
       inputRef.current?.blur();
     }, []);
 
+    // Closing the popup unmounts the element that currently holds focus, so
+    // without this the browser resets focus to <body>: the next Tab restarts
+    // from the top of the page instead of continuing to the phone field.
+    // WAI-ARIA APG returns focus to the trigger on both selection and Escape.
+    const returnFocusToButton = useCallback(() => {
+      countryButtonRef.current?.focus();
+    }, []);
+
     // Handle country option click
     const handleCountryClick = useCallback((c: Country) => {
       selectCountry(c);
       setHighlightedIndex(0);
-    }, [selectCountry]);
+      returnFocusToButton();
+    }, [selectCountry, returnFocusToButton]);
 
     // Handle country option keyboard navigation
     const handleCountryKeyDown = useCallback((e: React.KeyboardEvent, c: Country, index: number) => {
@@ -148,6 +158,7 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
           e.preventDefault();
           selectCountry(c);
           setHighlightedIndex(0);
+          returnFocusToButton();
           break;
         case 'ArrowDown':
           e.preventDefault();
@@ -180,9 +191,10 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
         case 'Escape':
           e.preventDefault();
           closeDropdown();
+          returnFocusToButton();
           break;
       }
-    }, [selectCountry, filteredCountries.length, closeDropdown]);
+    }, [selectCountry, filteredCountries.length, closeDropdown, returnFocusToButton]);
 
     useEffect(() => {
       if (!isOpen) {
@@ -245,8 +257,9 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
       } else if (e.key === 'Escape') {
         e.preventDefault();
         closeDropdown();
+        returnFocusToButton();
       }
-    }, [closeDropdown]);
+    }, [closeDropdown, returnFocusToButton]);
 
     // Render default UI
     return (
@@ -254,6 +267,7 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
         {/* Country Selector Button */}
         <button
           {...countryButtonProps}
+          ref={countryButtonRef}
           type="button"
           className={selectorClassName}
           disabled={disabled}
