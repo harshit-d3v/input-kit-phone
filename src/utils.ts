@@ -165,7 +165,7 @@ export function validatePhone(
  * Resolved through libphonenumber metadata rather than string concatenation:
  * most countries have a national trunk prefix that people type but that must not
  * survive into the international form (GB `07…`, DE `0…`, FR `06…`, AU `04…`,
- * IN `0…`), while a few — Italy among them — keep their leading zero. Only the
+ * IN `0…`), while a few (Italy among them) keep their leading zero. Only the
  * metadata knows which is which.
  */
 export function addDialCode(phone: string, country: MaybeCountry): string {
@@ -186,7 +186,7 @@ export function addDialCode(phone: string, country: MaybeCountry): string {
     return parsed.number;
   }
 
-  // Not resolvable yet — normally a partially typed number. Keep concatenating
+  // Not resolvable yet, normally a partially typed number. Keep concatenating
   // so the value stays stable across keystrokes; it settles as soon as there are
   // enough digits for the metadata to resolve.
   return `${country.dialCode}${cleanPhone(normalized)}`;

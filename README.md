@@ -8,22 +8,22 @@
 
 Headless React phone input with a complete world country-code dataset, searchable country selection, and `libphonenumber-js` powered formatting and validation.
 
-Source, issues, and contributions: **[github.com/harshit-d3v/input-kit-phone](https://github.com/harshit-d3v/input-kit-phone)** — if this package saves you time, a ⭐ there helps others find it.
+Source, issues, and contributions: **[github.com/harshit-d3v/input-kit-phone](https://github.com/harshit-d3v/input-kit-phone)**. If this package saves you time, a ⭐ there helps others find it.
 
 ## Latest update
 
-**0.4.0** — **correctness fixes, please upgrade.** E.164 was built by concatenating the dial code onto whatever was typed, so the national trunk prefix people actually type survived into the international form: UK `07400123456` became `+4407400123456`, and India, Germany, France and Australia were wrong the same way. Around 106 countries were affected, validation still reported these as valid, and North American numbers never were — which is why it went unnoticed. Now resolved through libphonenumber metadata, so countries that genuinely keep a leading zero (Italy) still do. Also fixes: an inline `onValidationChange` causing "Maximum update depth exceeded"; input past the country maximum being discarded instead of truncated, which silently blanked an empty field on paste; a country selection that reverted on international numbers; the country button not announcing the selected country to screen readers; focus dropping to the top of the page when the dropdown closed; and types failing to resolve for CommonJS TypeScript consumers under `node16`/`nodenext`.
+**0.4.0**: **correctness fixes, please upgrade.** E.164 was built by concatenating the dial code onto whatever was typed, so the national trunk prefix people actually type survived into the international form: UK `07400123456` became `+4407400123456`, and India, Germany, France and Australia were wrong the same way. Around 106 countries were affected, validation still reported these as valid, and North American numbers never were, which is why it went unnoticed. Now resolved through libphonenumber metadata, so countries that genuinely keep a leading zero (Italy) still do. Also fixes: an inline `onValidationChange` causing "Maximum update depth exceeded"; input past the country maximum being discarded instead of truncated, which silently blanked an empty field on paste; a country selection that reverted on international numbers; the country button not announcing the selected country to screen readers; focus dropping to the top of the page when the dropdown closed; and types failing to resolve for CommonJS TypeScript consumers under `node16`/`nodenext`.
 
-**0.3.0** — auto-detect respects manual country selection, metadata-based length validation (no more false `too_long` in variable-length countries), input capped at the country's maximum length, `isPhoneTooLong()`, SSR-safe caret handling, dropdown `Home`/`End` + search→list keyboard navigation, unminified published output.
+**0.3.0**: auto-detect respects manual country selection, metadata-based length validation (no more false `too_long` in variable-length countries), input capped at the country's maximum length, `isPhoneTooLong()`, SSR-safe caret handling, dropdown `Home`/`End` + search→list keyboard navigation, unminified published output.
 
-**0.2.2** — npm README cleanup: release notes stay inline; removed pointers to repo-only markdown files.
+**0.2.2**: npm README cleanup: release notes stay inline; removed pointers to repo-only markdown files.
 
-**0.2.0** — structured validation (`ValidationReason`, `validatePhoneNumber`, `onValidationChange`), `parsePhoneValue`, `getCountryOptions()`, improved `PhoneInput` a11y (click-outside, listbox ARIA) and RTL tests.
+**0.2.0**: structured validation (`ValidationReason`, `validatePhoneNumber`, `onValidationChange`), `parsePhoneValue`, `getCountryOptions()`, improved `PhoneInput` a11y (click-outside, listbox ARIA) and RTL tests.
 
 ## Features
 
 - **245 supported calling regions** derived from `libphonenumber-js` metadata and `world-countries`
-- **Headless hook** via `usePhoneInput()` plus an optional **unstyled reference** `PhoneInput` component (class names only — no bundled CSS)
+- **Headless hook** via `usePhoneInput()` plus an optional **unstyled reference** `PhoneInput` component (class names only, no bundled CSS)
 - **Searchable country selector** with country name, ISO code, and dial-code matching
 - **Real formatting and validation** powered by `libphonenumber-js`
 - **International detection** for pasted or typed `+` / `00` numbers
@@ -41,7 +41,7 @@ npm install @input-kit/phone
 
 ```tsx
 import { PhoneInput } from '@input-kit/phone';
-import './phone-input.css'; // your own stylesheet — the package ships no CSS
+import './phone-input.css'; // your own stylesheet, the package ships no CSS
 
 function Example() {
   return (
@@ -104,7 +104,7 @@ function Example() {
 | `phone` | National digits stored by the hook (default) |
 | `fullPhone` | National number plus dial code when `includeDialCode` is `true` |
 | `onChange(phone, country)` | Same contract as `phone` / `includeDialCode` |
-| E.164 for APIs | `parsePhoneValue(phone, country).e164` when valid — prefer this over raw concatenation |
+| E.164 for APIs | `parsePhoneValue(phone, country).e164` when valid. Prefer this over raw concatenation |
 
 ## Known behavior
 
@@ -151,7 +151,7 @@ Manual browser check: `test-demo/` (static HTML).
 
 ## Contributing
 
-Bug reports, feature requests, and pull requests are welcome — see [CONTRIBUTING.md](https://github.com/harshit-d3v/input-kit-phone/blob/main/CONTRIBUTING.md). In short: open an issue with a minimal reproduction (include the exact phone number and country for formatting/validation bugs), and for PRs run `bun run test`, `bun run typecheck`, and `bun run lint` before submitting.
+Bug reports, feature requests, and pull requests are welcome, see [CONTRIBUTING.md](https://github.com/harshit-d3v/input-kit-phone/blob/main/CONTRIBUTING.md). In short: open an issue with a minimal reproduction (include the exact phone number and country for formatting/validation bugs), and for PRs run `bun run test`, `bun run typecheck`, and `bun run lint` before submitting.
 
 ## Exports
 

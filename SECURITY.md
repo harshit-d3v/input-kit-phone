@@ -26,7 +26,7 @@ report will be credited (unless you prefer to stay anonymous).
 ## Scope notes
 
 This is a client-side input component. It does not transmit, store, or log
-phone numbers itself — numbers only live in your application's state. Issues in
+phone numbers itself. Numbers only live in your application's state. Issues in
 phone number parsing/validation behavior belong to
 [libphonenumber-js](https://github.com/catamphetamine/libphonenumber-js) unless
 caused by this package's wrapping logic.

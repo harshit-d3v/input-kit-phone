@@ -21,7 +21,7 @@ export function App() {
   return (
     <main className="page">
       <h1>Styled phone input</h1>
-      <p>Hook-only UI with minimal CSS — same pattern as a custom product form.</p>
+      <p>Hook-only UI with minimal CSS, same pattern as a custom product form.</p>
 
       <div className="phone-field">
         <button type="button" className="country-trigger" {...countryButtonProps}>

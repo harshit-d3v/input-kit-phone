@@ -17,7 +17,7 @@ import {
 } from './utils';
 
 // useLayoutEffect warns when rendering on the server (e.g. Next.js SSR);
-// fall back to useEffect there — the caret restoration it drives is a
+// fall back to useEffect there. The caret restoration it drives is a
 // browser-only concern anyway.
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
@@ -159,7 +159,7 @@ export function usePhoneInput(
     }
 
     // Respect a manual selection while it still explains the number's dial
-    // code — e.g. a +1 number must not flip a manually chosen CA back to US.
+    // code, e.g. a +1 number must not flip a manually chosen CA back to US.
     const digits = cleanPhone(phone);
     const manualSelectionStillMatches =
       manualCountrySelectionRef.current &&
@@ -195,7 +195,7 @@ export function usePhoneInput(
   );
 
   // Held in a ref so handler identity does not drive the effect. An inline arrow
-  // — which is how the docs lead people to write this — gets a new identity on
+  // (which is how the docs lead people to write this) gets a new identity on
   // every render, so depending on it re-fired the callback every render. A
   // handler that stored the result (an object, the natural shape) then set state
   // every render, and React bailed out with "Maximum update depth exceeded".

@@ -327,7 +327,7 @@ describe('usePhoneInput', () => {
       } as unknown as React.ChangeEvent<HTMLInputElement>);
     });
 
-    // Extra digit rejected — stored value unchanged
+    // Extra digit rejected, stored value unchanged
     expect(result.current.phone).toBe('4155552671');
   });
 

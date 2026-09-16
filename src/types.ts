@@ -147,7 +147,7 @@ export interface PhoneInputProps extends PhoneInputOptions {
   value?: string;
   /** Default value */
   defaultValue?: string;
-  /** Change handler — national digits by default; includes dial code when `includeDialCode` is true */
+  /** Change handler: national digits by default; includes dial code when `includeDialCode` is true */
   onChange?: (phone: string, country: Country | undefined) => void;
   /** @deprecated Country change handler retained for compatibility */
   onCountryChange?: (country: Country | undefined) => void;

@@ -8,7 +8,7 @@ import {
   getCountryOptions,
 } from './countries';
 
-/** SHA-256 of sorted ISO codes — update only when libphonenumber region set changes intentionally */
+/** SHA-256 of sorted ISO codes. Update only when libphonenumber region set changes intentionally */
 const COUNTRY_CODES_CHECKSUM_BASELINE =
   'f760bd6add5b111943f2983a4d5c50a1bf8d17f3e34cb347bdb06a2ac3ca21b7';
 
