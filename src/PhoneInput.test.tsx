@@ -1,6 +1,12 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { PhoneInput } from './PhoneInput';
+
+// Every test mounts another PhoneInput. Without this they accumulate in the same
+// document and `getByRole('button', { name: /country/i })` matches each
+// previously mounted trigger. It only surfaces when test files share a process,
+// which is exactly the configuration that keeps worker memory down.
+afterEach(cleanup);
 
 function getCountryButton() {
   return screen.getByRole('button', { name: /country/i });

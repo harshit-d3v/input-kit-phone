@@ -12,6 +12,7 @@ import {
   filterCountries,
   getPlaceholder,
   isPhoneTooLong,
+  limitInputLength,
   validatePhoneNumber,
 } from './utils';
 
@@ -193,9 +194,21 @@ export function usePhoneInput(
     [phone, country, required, validator]
   );
 
+  // Held in a ref so handler identity does not drive the effect. An inline arrow
+  // — which is how the docs lead people to write this — gets a new identity on
+  // every render, so depending on it re-fired the callback every render. A
+  // handler that stored the result (an object, the natural shape) then set state
+  // every render, and React bailed out with "Maximum update depth exceeded".
+  // `validation` is already memoised, so the callback now fires only when the
+  // result actually changes, which is its documented contract.
+  const onValidationChangeRef = useRef(onValidationChange);
+  useIsomorphicLayoutEffect(() => {
+    onValidationChangeRef.current = onValidationChange;
+  });
+
   useEffect(() => {
-    onValidationChange?.(validation);
-  }, [validation, onValidationChange]);
+    onValidationChangeRef.current?.(validation);
+  }, [validation]);
 
   const localizedCountry = useMemo(
     () => localizeCountry(country, locale),
@@ -262,16 +275,30 @@ export function usePhoneInput(
     (selectedCountry: Country) => {
       const rawCountry = getCountryByCode(selectedCountry.code) ?? selectedCountry;
       manualCountrySelectionRef.current = true;
+
+      // When the value carries a dial code, rewrite it to the chosen country's.
+      // Without this the auto-detect effect re-reads the *old* dial code on the
+      // next commit and throws the selection away, so picking a different
+      // country did nothing at all on an international number. It also kept the
+      // hook's `country` and the country passed to `onChange` out of step.
+      const rewritten = phone.trim().startsWith('+')
+        ? addDialCode(removeDialCode(phone, country), rawCountry)
+        : phone;
+
+      if (rewritten !== phone && !isControlled) {
+        setInternalPhone(rewritten);
+      }
+
       setCountry(rawCountry);
       setIsOpen(false);
       setSearchQuery('');
       onCountryChange?.(getOutputCountry(rawCountry));
       onChange?.(
-        includeDialCode ? addDialCode(phone, rawCountry) : phone,
+        includeDialCode ? addDialCode(rewritten, rawCountry) : rewritten,
         getOutputCountry(rawCountry)
       );
     },
-    [phone, onChange, onCountryChange, includeDialCode, getOutputCountry]
+    [phone, country, isControlled, onChange, onCountryChange, includeDialCode, getOutputCountry]
   );
 
   // Toggle dropdown
@@ -310,15 +337,30 @@ export function usePhoneInput(
 
       // Cap input at the maximum possible length for the selected country
       // (libphonenumber metadata). Deletions are always allowed.
+      //
+      // An international value is exempt: it carries its own country code, so
+      // the currently selected country's maximum is the wrong yardstick and
+      // auto-detect is about to change the country anyway.
+      const isInternationalEntry = unformatted.startsWith('+') || unformatted.startsWith('00');
+
       if (
+        !isInternationalEntry &&
         cleanPhone(unformatted).length > cleanPhone(phone).length &&
         isPhoneTooLong(unformatted, country)
       ) {
-        event.target.value = formattedPhone;
-        const restoredCaret = Math.min(Math.max(caretPosition - 1, 0), formattedPhone.length);
+        // Truncate rather than discard. Reverting to `formattedPhone` threw the
+        // whole entry away, and when the field was empty that string is "", so
+        // pasting one digit too many silently blanked the field: no value, no
+        // onChange, no validation message, nothing the app could surface.
+        const truncated = limitInputLength(unformatted, country);
+        const truncatedDisplay = formatPhone(truncated, country);
+        event.target.value = truncatedDisplay;
+        const restoredCaret = Math.min(Math.max(caretPosition - 1, 0), truncatedDisplay.length);
         if (typeof event.target.setSelectionRange === 'function') {
           event.target.setSelectionRange(restoredCaret, restoredCaret);
         }
+        pendingCaretDigitIndexRef.current = countDigitsBeforePosition(truncatedDisplay, restoredCaret);
+        setPhone(truncated);
         return;
       }
 

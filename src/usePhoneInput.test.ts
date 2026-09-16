@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { usePhoneInput } from './usePhoneInput';
+import { getCountryByCode } from './countries';
 
 describe('usePhoneInput', () => {
   it('should initialize with default value', () => {
@@ -352,5 +353,53 @@ describe('usePhoneInput', () => {
     
     // Value should include dial code after country change
     expect(onChange).toHaveBeenCalled();
+  });
+  // --- regressions ---
+
+  it('fires onValidationChange only when the result changes, not on every render', () => {
+    const spy = vi.fn();
+    // An inline arrow, which is how the docs lead people to write it. Depending
+    // on handler identity re-fired this every render and looped the app.
+    const { rerender } = renderHook(() =>
+      usePhoneInput({ defaultCountry: 'US', onValidationChange: (v) => spy(v) })
+    );
+
+    const afterMount = spy.mock.calls.length;
+    rerender();
+    rerender();
+    rerender();
+
+    expect(spy.mock.calls.length).toBe(afterMount);
+  });
+
+  it('keeps what fits when input exceeds the country maximum, instead of blanking', () => {
+    const { result } = renderHook(() => usePhoneInput({ defaultCountry: 'US' }));
+
+    act(() => {
+      // 11 digits into an empty US field (max 10). This used to discard the
+      // whole entry and leave the field empty with no onChange and no message.
+      result.current.inputProps.onChange({
+        target: { value: '21337342531', selectionStart: 11 },
+      } as never);
+    });
+
+    expect(result.current.phone).not.toBe('');
+  });
+
+  it('keeps an explicitly chosen country on an international number', () => {
+    const { result } = renderHook(() => usePhoneInput({ defaultCountry: 'GB' }));
+
+    act(() => {
+      result.current.inputProps.onChange({
+        target: { value: '+447400123456', selectionStart: 13 },
+      } as never);
+    });
+
+    act(() => {
+      result.current.selectCountry(getCountryByCode('DE')!);
+    });
+
+    // Auto-detect used to re-read the old +44 and throw the selection away.
+    expect(result.current.country?.code).toBe('DE');
   });
 });

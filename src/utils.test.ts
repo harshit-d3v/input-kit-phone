@@ -140,6 +140,35 @@ describe('parseToE164', () => {
     const us = getCountryByCode('US');
     expect(parseToE164('', us)).toBe('');
   });
+
+  // The national trunk prefix people actually type must not survive into E.164.
+  // This went unnoticed because every other test here uses US numbers, and the
+  // North American plan has no trunk prefix.
+  it.each([
+    ['IN', '09876543210', '+919876543210'],
+    ['GB', '07400123456', '+447400123456'],
+    ['DE', '030123456', '+4930123456'],
+    ['FR', '0612345678', '+33612345678'],
+    ['AU', '0412345678', '+61412345678'],
+  ])('drops the %s trunk prefix: %s -> %s', (code, typed, expected) => {
+    expect(parseToE164(typed, getCountryByCode(code))).toBe(expected);
+  });
+
+  // Italy is the counter-example: its leading zero is part of the number, so a
+  // blanket "strip the leading 0" would break it.
+  it('keeps the leading zero for countries that use it', () => {
+    expect(parseToE164('0212345678', getCountryByCode('IT'))).toBe('+390212345678');
+  });
+
+  // A national number starting with the country's own dial code used to make the
+  // old guard skip the country code entirely. Every Kazakh NSN starts with 7.
+  it('keeps the country code when the national number starts with it', () => {
+    expect(parseToE164('7017778899', getCountryByCode('KZ'))).toBe('+77017778899');
+  });
+
+  it('accepts a number typed with its dial code but no plus', () => {
+    expect(parseToE164('919876543210', getCountryByCode('IN'))).toBe('+919876543210');
+  });
 });
 
 describe('getNationalNumber', () => {

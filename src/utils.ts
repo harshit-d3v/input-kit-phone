@@ -160,7 +160,13 @@ export function validatePhone(
 }
 
 /**
- * Add dial code to phone number
+ * Add dial code to phone number, producing E.164.
+ *
+ * Resolved through libphonenumber metadata rather than string concatenation:
+ * most countries have a national trunk prefix that people type but that must not
+ * survive into the international form (GB `07…`, DE `0…`, FR `06…`, AU `04…`,
+ * IN `0…`), while a few — Italy among them — keep their leading zero. Only the
+ * metadata knows which is which.
  */
 export function addDialCode(phone: string, country: MaybeCountry): string {
   if (!country) return phone;
@@ -170,9 +176,20 @@ export function addDialCode(phone: string, country: MaybeCountry): string {
   if (normalized === '+') return '';
   if (normalized.startsWith('+')) return normalized;
 
-  const digits = cleanPhone(normalized);
-  const matchingDialCode = country.dialCodes.find((dialCode) => digits.startsWith(dialCode.replace('+', '')));
-  return matchingDialCode ? `+${digits}` : `${country.dialCode}${digits}`;
+  // Concatenating the dial code onto whatever was typed produced a wrong number
+  // for every trunk-prefix country, and the old "does it already start with our
+  // dial code?" guard made it worse: a national number that happens to begin
+  // with the country's own dial code skipped the country code entirely, so every
+  // Kazakh number (+7, NSNs all start with 7) lost its prefix.
+  const parsed = parsePhoneNumberFromString(normalized, getCountryCode(country));
+  if (parsed) {
+    return parsed.number;
+  }
+
+  // Not resolvable yet — normally a partially typed number. Keep concatenating
+  // so the value stays stable across keystrokes; it settles as soon as there are
+  // enough digits for the metadata to resolve.
+  return `${country.dialCode}${cleanPhone(normalized)}`;
 }
 
 /**
