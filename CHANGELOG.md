@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-16
+
+### Fixed
+
+- **E.164 was wrong for roughly 106 countries.** `addDialCode()`, `parseToE164()` and the `includeDialCode` value were built by concatenating the dial code onto whatever was typed, so the national trunk prefix people actually type survived into the international form: `07400123456` in the UK became `+4407400123456`, and India, Germany, France and Australia were wrong the same way. `validatePhoneNumber()` reported these as valid, so forms submitted them and SMS providers rejected them. Now resolved through libphonenumber metadata, which also keeps the leading zero for countries such as Italy that genuinely use one. North American numbers were never affected, which is why this went unnoticed.
+- A national number beginning with its own country's dial code lost the country code entirely. Every Kazakh number (`+7`, and every national number starts with `7`) was affected.
+- `onValidationChange` was in its effect's dependency array, so an inline handler — the form the docs lead you to write — re-fired it on every render. A handler that stored the result then set state on every render and React bailed out with "Maximum update depth exceeded". It now fires only when the validation result changes.
+- Input beyond the country's maximum length was discarded rather than truncated. When the field was empty that silently blanked it: no value, no `onChange`, no validation message. It now keeps what fits, and an international value is exempt because the selected country's maximum is the wrong yardstick for it.
+- Choosing a country did nothing when the value was in international form: auto-detect re-read the old dial code and reverted the selection in the same commit, while `onChange` had already reported the new country. Selecting a country now rewrites the value's dial code so the two agree.
+- TypeScript consumers of the CommonJS build under `moduleResolution: node16`/`nodenext` got a hard compile error. `index.d.cts` was being built but never referenced; the `exports` map now declares types per condition.
+- The first README example imported a package that does not exist, so the quick start failed to build when copied.
+
+### Accessibility
+
+- The country button announced only its action. A constant `aria-label` overrides an element's own content when computing its accessible name, so the flag and dial code inside the button never reached the accessibility tree — a screen reader could not tell which country was selected, and choosing one changed nothing audible. The label now carries the current country and dial code, as the WAI-ARIA combobox pattern requires of a collapsed control. Headless consumers get this too, via `countryButtonProps`.
+- Closing the dropdown dropped focus to `<body>`, so the next Tab restarted at the top of the page. Focus now returns to the country button on selection and on Escape, from both the option list and the search field (WAI-ARIA APG; WCAG 2.4.3).
+
+
 ## [0.3.0] - 2026-07-22
 
 ### Added

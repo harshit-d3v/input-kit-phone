@@ -39,7 +39,7 @@ npm install @input-kit/phone
 
 ```tsx
 import { PhoneInput } from '@input-kit/phone';
-import '@your-app/phone-input.css'; // style .phone-input-* classes
+import './phone-input.css'; // your own stylesheet — the package ships no CSS
 
 function Example() {
   return (
