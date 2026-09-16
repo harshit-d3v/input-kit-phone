@@ -12,6 +12,8 @@ Source, issues, and contributions: **[github.com/harshit-d3v/input-kit-phone](ht
 
 ## Latest update
 
+**0.4.0** — **correctness fixes, please upgrade.** E.164 was built by concatenating the dial code onto whatever was typed, so the national trunk prefix people actually type survived into the international form: UK `07400123456` became `+4407400123456`, and India, Germany, France and Australia were wrong the same way. Around 106 countries were affected, validation still reported these as valid, and North American numbers never were — which is why it went unnoticed. Now resolved through libphonenumber metadata, so countries that genuinely keep a leading zero (Italy) still do. Also fixes: an inline `onValidationChange` causing "Maximum update depth exceeded"; input past the country maximum being discarded instead of truncated, which silently blanked an empty field on paste; a country selection that reverted on international numbers; the country button not announcing the selected country to screen readers; focus dropping to the top of the page when the dropdown closed; and types failing to resolve for CommonJS TypeScript consumers under `node16`/`nodenext`.
+
 **0.3.0** — auto-detect respects manual country selection, metadata-based length validation (no more false `too_long` in variable-length countries), input capped at the country's maximum length, `isPhoneTooLong()`, SSR-safe caret handling, dropdown `Home`/`End` + search→list keyboard navigation, unminified published output.
 
 **0.2.2** — npm README cleanup: release notes stay inline; removed pointers to repo-only markdown files.
