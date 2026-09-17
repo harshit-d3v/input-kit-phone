@@ -12,6 +12,8 @@ Source, issues, and contributions: **[github.com/harshit-d3v/input-kit-phone](ht
 
 ## Latest update
 
+**0.4.2**: documents and locks the built-in **format as you type**. Live national formatting on every keystroke was already there (`formatOnType`, on by default), but it was barely documented and had no regression tests. Added a README section and seven tests covering national, international, per-country, delete and paste formatting, plus proof that the stored and submitted value stays clean. No behavior change.
+
 **0.4.0**: **correctness fixes, please upgrade.** E.164 was built by concatenating the dial code onto whatever was typed, so the national trunk prefix people actually type survived into the international form: UK `07400123456` became `+4407400123456`, and India, Germany, France and Australia were wrong the same way. Around 106 countries were affected, validation still reported these as valid, and North American numbers never were, which is why it went unnoticed. Now resolved through libphonenumber metadata, so countries that genuinely keep a leading zero (Italy) still do. Also fixes: an inline `onValidationChange` causing "Maximum update depth exceeded"; input past the country maximum being discarded instead of truncated, which silently blanked an empty field on paste; a country selection that reverted on international numbers; the country button not announcing the selected country to screen readers; focus dropping to the top of the page when the dropdown closed; and types failing to resolve for CommonJS TypeScript consumers under `node16`/`nodenext`.
 
 **0.3.0**: auto-detect respects manual country selection, metadata-based length validation (no more false `too_long` in variable-length countries), input capped at the country's maximum length, `isPhoneTooLong()`, SSR-safe caret handling, dropdown `Home`/`End` + search→list keyboard navigation, unminified published output.
@@ -25,7 +27,8 @@ Source, issues, and contributions: **[github.com/harshit-d3v/input-kit-phone](ht
 - **245 supported calling regions** derived from `libphonenumber-js` metadata and `world-countries`
 - **Headless hook** via `usePhoneInput()` plus an optional **unstyled reference** `PhoneInput` component (class names only, no bundled CSS)
 - **Searchable country selector** with country name, ISO code, and dial-code matching
-- **Real formatting and validation** powered by `libphonenumber-js`
+- **Format as you type** in the selected country's format, on every keystroke, powered by `libphonenumber-js`
+- **Real validation** powered by `libphonenumber-js`
 - **International detection** for pasted or typed `+` / `00` numbers
 - **TypeScript-first** exports for countries, helpers, hook return values, and component refs
 
@@ -95,6 +98,24 @@ function Example() {
     </div>
   );
 }
+```
+
+## Format as you type
+
+`inputProps.value` reformats on every keystroke in the selected country's national format, so the field reads `(555) 123-4567` while the user types. Typing a `+` switches to international format (`+1 555 123 4567`). This is on by default; set `formatOnType: false` for raw digits.
+
+The formatting is display only. `onChange`, `phone`, `fullPhone` and `parsePhoneValue` still give you the clean value, so what you store and submit is never the formatted string.
+
+```tsx
+const { inputProps, fullPhone } = usePhoneInput({
+  defaultCountry: 'US',
+  includeDialCode: true,
+  onChange: (phone) => console.log(phone), // +15551234567, not "(555) 123-4567"
+});
+
+// user types 5551234567
+// inputProps.value -> "(555) 123-4567"
+// fullPhone        -> "+15551234567"
 ```
 
 ## Phone values

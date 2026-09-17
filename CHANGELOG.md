@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-09-17
+
+### Documentation
+
+- Documented the built-in **format as you type**. Live formatting in the selected country's national format runs on every keystroke via `libphonenumber-js` `AsYouType` (`formatOnType`, on by default), and typing a `+` switches to international format. The README now has a dedicated section, and the Features list calls it out. No behavior change, the formatting was already there.
+
+### Tests
+
+- Added seven regression tests locking the format-as-you-type behavior: progressive national and international formatting, per-country differences (US, GB, DE), delete and paste, `formatOnType: false` showing raw digits, and proof that `phone` / `fullPhone` / `onChange` keep the clean value while only the display is formatted.
+
 ## [0.4.0] - 2026-09-16
 
 ### Fixed

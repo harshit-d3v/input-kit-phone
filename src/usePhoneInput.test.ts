@@ -402,4 +402,67 @@ describe('usePhoneInput', () => {
     // Auto-detect used to re-read the old +44 and throw the selection away.
     expect(result.current.country?.code).toBe('DE');
   });
+
+  // --- format as you type ---
+  // Live formatting is already built in (formatOnType, on by default) and runs
+  // on every keystroke via libphonenumber's AsYouType. These lock that so it
+  // cannot silently regress, since it is the headline feature people compare.
+  describe('format as you type', () => {
+    const type = (result: { current: { inputProps: { value: string; onChange: (e: never) => void } } }, value: string) => {
+      act(() => {
+        result.current.inputProps.onChange({
+          target: { value, selectionStart: value.length, setSelectionRange() {} },
+        } as never);
+      });
+      return result.current.inputProps.value;
+    };
+
+    it('formats a US number progressively as digits arrive', () => {
+      const { result } = renderHook(() => usePhoneInput({ defaultCountry: 'US' }));
+      expect(type(result, '555')).toBe('(555)');
+      expect(type(result, '5551234')).toBe('(555) 123-4');
+      expect(type(result, '5551234567')).toBe('(555) 123-4567');
+    });
+
+    it('formats an international number progressively', () => {
+      const { result } = renderHook(() => usePhoneInput({ defaultCountry: 'US' }));
+      expect(type(result, '+1555')).toBe('+1 555');
+      expect(type(result, '+15551234567')).toBe('+1 555 123 4567');
+    });
+
+    it('uses the selected country format (GB and DE differ from US)', () => {
+      const gb = renderHook(() => usePhoneInput({ defaultCountry: 'GB' }));
+      expect(type(gb.result, '07400123456')).toBe('07400 123456');
+
+      const de = renderHook(() => usePhoneInput({ defaultCountry: 'DE' }));
+      expect(type(de.result, '15112345678')).toBe('15112345678');
+    });
+
+    it('reformats cleanly when a digit is removed', () => {
+      const { result } = renderHook(() => usePhoneInput({ defaultCountry: 'US' }));
+      type(result, '5551234567');
+      expect(type(result, '555123456')).toBe('(555) 123-456');
+    });
+
+    it('formats a full number pasted in one go', () => {
+      const { result } = renderHook(() => usePhoneInput({ defaultCountry: 'US' }));
+      expect(type(result, '5551234567')).toBe('(555) 123-4567');
+    });
+
+    it('shows raw digits when formatOnType is off', () => {
+      const { result } = renderHook(() => usePhoneInput({ defaultCountry: 'US', formatOnType: false }));
+      expect(type(result, '5551234567')).toBe('5551234567');
+    });
+
+    it('leaves the parsed value untouched while the display is formatted', () => {
+      const seen: string[] = [];
+      const { result } = renderHook(() =>
+        usePhoneInput({ defaultCountry: 'US', includeDialCode: true, onChange: (p) => seen.push(p) })
+      );
+      type(result, '5551234567');
+      expect(result.current.inputProps.value).toBe('(555) 123-4567');
+      expect(result.current.fullPhone).toBe('+15551234567');
+      expect(seen.at(-1)).toBe('+15551234567');
+    });
+  });
 });
