@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-17
+
+### Changed
+
+- Dropped the `world-countries` runtime dependency. The package only used it for country names and dial codes, so those are now generated once into `src/country-data.ts` (about 26 kB) and shipped inside the package. Installing `@input-kit/phone` no longer pulls the full `world-countries` dataset (~600 kB unpacked). The country list, names, dial codes, flags and formats are byte-identical to before. Regenerate the data with `npm run generate:countries` when the libphonenumber region set changes.
+
 ## [0.4.2] - 2026-09-17
 
 ### Documentation

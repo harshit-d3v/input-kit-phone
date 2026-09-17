@@ -12,6 +12,8 @@ Source, issues, and contributions: **[github.com/harshit-d3v/input-kit-phone](ht
 
 ## Latest update
 
+**0.5.0**: lighter install. Dropped the `world-countries` runtime dependency (~600 kB unpacked); the names and dial codes it provided are now generated into the package (about 26 kB). The country list is byte-identical, nothing else changes.
+
 **0.4.2**: documents and locks the built-in **format as you type**. Live national formatting on every keystroke was already there (`formatOnType`, on by default), but it was barely documented and had no regression tests. Added a README section and seven tests covering national, international, per-country, delete and paste formatting, plus proof that the stored and submitted value stays clean. No behavior change.
 
 **0.4.0**: **correctness fixes, please upgrade.** E.164 was built by concatenating the dial code onto whatever was typed, so the national trunk prefix people actually type survived into the international form: UK `07400123456` became `+4407400123456`, and India, Germany, France and Australia were wrong the same way. Around 106 countries were affected, validation still reported these as valid, and North American numbers never were, which is why it went unnoticed. Now resolved through libphonenumber metadata, so countries that genuinely keep a leading zero (Italy) still do. Also fixes: an inline `onValidationChange` causing "Maximum update depth exceeded"; input past the country maximum being discarded instead of truncated, which silently blanked an empty field on paste; a country selection that reverted on international numbers; the country button not announcing the selected country to screen readers; focus dropping to the top of the page when the dropdown closed; and types failing to resolve for CommonJS TypeScript consumers under `node16`/`nodenext`.
@@ -24,7 +26,7 @@ Source, issues, and contributions: **[github.com/harshit-d3v/input-kit-phone](ht
 
 ## Features
 
-- **245 supported calling regions** derived from `libphonenumber-js` metadata and `world-countries`
+- **245 supported calling regions** derived from `libphonenumber-js` metadata, with names and dial codes generated into the package so there is no heavy country-data dependency to install
 - **Headless hook** via `usePhoneInput()` plus an optional **unstyled reference** `PhoneInput` component (class names only, no bundled CSS)
 - **Searchable country selector** with country name, ISO code, and dial-code matching
 - **Format as you type** in the selected country's format, on every keystroke, powered by `libphonenumber-js`

@@ -1,6 +1,6 @@
 import { getCountries, getCountryCallingCode, getExampleNumber, parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js';
 import examples from 'libphonenumber-js/mobile/examples';
-import worldCountries from 'world-countries';
+import { COUNTRY_DATA } from './country-data';
 
 export interface Country {
   code: string;
@@ -18,37 +18,11 @@ const PRIORITY_COUNTRIES = [
 ];
 
 const supportedCountries = new Set(getCountries());
-const worldCountryMap = new Map(worldCountries.map((country) => [country.cca2, country]));
-const FALLBACK_COUNTRIES: Record<string, { name: string; dialCode?: string; flag?: string }> = {
-  AC: { name: 'Ascension Island', dialCode: '+247' },
-  TA: { name: 'Tristan da Cunha', dialCode: '+290' },
-  BQ: { name: 'Caribbean Netherlands', dialCode: '+599' },
-};
-
-function normalizeDialCode(root: string, suffix: string) {
-  const normalizedRoot = root.startsWith('+') ? root : `+${root}`;
-  const digitsOnlySuffix = suffix.replace(/\D/g, '');
-  return `${normalizedRoot}${digitsOnlySuffix}`;
-}
 
 function codeToFlag(code: string): string {
   return code
     .toUpperCase()
     .replace(/./g, (char) => String.fromCodePoint(127397 + char.charCodeAt(0)));
-}
-
-function buildDialCodes(country: (typeof worldCountries)[number] | undefined, fallbackDialCode: string) {
-  const root = country?.idd?.root;
-  if (!root) {
-    return [fallbackDialCode];
-  }
-
-  const suffixes = country.idd?.suffixes?.length ? country.idd.suffixes : [''];
-  const dialCodes = suffixes
-    .map((suffix) => normalizeDialCode(root, suffix))
-    .filter((dialCode) => /^\+\d+$/.test(dialCode));
-
-  return Array.from(new Set([fallbackDialCode, ...(dialCodes.length ? dialCodes : [])]));
 }
 
 function getCountryFormat(code: CountryCode) {
@@ -63,17 +37,16 @@ function getCountryPriority(code: string) {
 
 const generatedCountries = Array.from(supportedCountries)
   .map<Country>((code) => {
-    const country = worldCountryMap.get(code);
-    const fallback = FALLBACK_COUNTRIES[code];
-    const dialCode = fallback?.dialCode ?? `+${getCountryCallingCode(code as CountryCode)}`;
-    const dialCodes = buildDialCodes(country, dialCode);
+    const data = COUNTRY_DATA[code];
+    const dialCode = data?.dialCodes[0] ?? `+${getCountryCallingCode(code as CountryCode)}`;
+    const dialCodes = data?.dialCodes ?? [dialCode];
 
     return {
       code,
-      name: country?.name.common ?? fallback?.name ?? code,
+      name: data?.name ?? code,
       dialCode,
       dialCodes,
-      flag: country?.flag || fallback?.flag || codeToFlag(code),
+      flag: codeToFlag(code),
       format: getCountryFormat(code as CountryCode),
     } satisfies Country;
   })
