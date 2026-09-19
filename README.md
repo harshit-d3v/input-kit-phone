@@ -12,6 +12,8 @@ Source, issues, and contributions: **[github.com/harshit-d3v/input-kit-phone](ht
 
 ## Latest update
 
+**0.6.0**: the country selector is now a real ARIA combobox. The search field drives `aria-activedescendant` while keeping focus, the active option is the selected one, and a live region announces how many countries matched. Headless consumers get `countrySearchProps`, `activeCountry`, `moveHighlight` and `countryResultsText`.
+
 **0.5.0**: lighter install. Dropped the `world-countries` runtime dependency (~600 kB unpacked); the names and dial codes it provided are now generated into the package (about 26 kB). The country list is byte-identical, nothing else changes.
 
 **0.4.2**: documents and locks the built-in **format as you type**. Live national formatting on every keystroke was already there (`formatOnType`, on by default), but it was barely documented and had no regression tests. Added a README section and seven tests covering national, international, per-country, delete and paste formatting, plus proof that the stored and submitted value stays clean. No behavior change.
@@ -29,6 +31,7 @@ Source, issues, and contributions: **[github.com/harshit-d3v/input-kit-phone](ht
 - **245 supported calling regions** derived from `libphonenumber-js` metadata, with names and dial codes generated into the package so there is no heavy country-data dependency to install
 - **Headless hook** via `usePhoneInput()` plus an optional **unstyled reference** `PhoneInput` component (class names only, no bundled CSS)
 - **Searchable country selector** with country name, ISO code, and dial-code matching
+- **Accessible country selector** built on the WAI-ARIA combobox pattern, with `aria-activedescendant` navigation and a live region announcing the filtered count
 - **Format as you type** in the selected country's format, on every keystroke, powered by `libphonenumber-js`
 - **Real validation** powered by `libphonenumber-js`
 - **International detection** for pasted or typed `+` / `00` numbers
@@ -101,6 +104,20 @@ function Example() {
   );
 }
 ```
+
+## Accessibility
+
+The country selector follows the WAI-ARIA APG [combobox with listbox popup](https://www.w3.org/WAI/ARIA/apg/patterns/combobox/) pattern.
+
+When the dropdown is searchable, the search field is the combobox: it carries `role="combobox"`, `aria-expanded`, `aria-controls` pointing at the listbox, `aria-autocomplete="list"`, and `aria-activedescendant` pointing at the active option. Focus stays in the search field while the arrow keys move the active option, so you can keep typing to refine the list. `aria-selected` marks the active option, as a single-select listbox should. Opening the list makes the country you already picked active, so a screen reader reads the current value first.
+
+Keys: ArrowDown and ArrowUp move the active option, Home and End jump to the ends, Enter selects it, Escape closes the list and returns focus to the trigger button. A polite live region reports how many countries the query matched, or that none did.
+
+With `searchable={false}` there is no combobox, so the options keep roving focus and the same keys apply to the list itself.
+
+The trigger button is named with the selected country and its dial code, not just the action, because a constant `aria-label` would otherwise hide the flag and dial code from the accessibility tree.
+
+Building your own UI on `usePhoneInput()` gets the same wiring: spread `countrySearchProps` on your search field, `dropdownProps` on the list, and `getCountryOptionProps(country, index)` on each option. `countryResultsText` is the localized live-region string. All the announcement strings go through the `labels` option.
 
 ## Format as you type
 

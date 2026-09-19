@@ -100,3 +100,127 @@ describe('PhoneInput', () => {
     expect(document.activeElement).toBe(button);
   });
 });
+
+describe('PhoneInput country combobox', () => {
+  function openCombobox() {
+    render(<PhoneInput defaultCountry="US" searchable />);
+    fireEvent.click(getCountryButton());
+    return screen.getByRole('combobox');
+  }
+
+  it('wires the search field as a combobox pointing at the listbox', () => {
+    const search = openCombobox();
+    const listbox = screen.getByRole('listbox');
+
+    expect(search.getAttribute('aria-expanded')).toBe('true');
+    expect(search.getAttribute('aria-autocomplete')).toBe('list');
+    expect(search.getAttribute('aria-controls')).toBe(listbox.id);
+    expect(listbox.id).toBeTruthy();
+    // The listbox needs its own name, the search field's label does not carry over.
+    expect(listbox.getAttribute('aria-label')).toBeTruthy();
+  });
+
+  it('points aria-activedescendant at the selected country when it opens', () => {
+    const search = openCombobox();
+    const active = document.getElementById(search.getAttribute('aria-activedescendant') ?? '');
+
+    expect(active?.textContent).toMatch(/United States/i);
+    expect(active?.getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('moves aria-activedescendant with the arrow keys and keeps focus in the field', () => {
+    const search = openCombobox();
+    search.focus();
+    const first = search.getAttribute('aria-activedescendant');
+
+    fireEvent.keyDown(search, { key: 'ArrowDown' });
+    const second = search.getAttribute('aria-activedescendant');
+
+    expect(second).not.toBe(first);
+    expect(document.getElementById(second ?? '')).toBeTruthy();
+    // Focus must stay put, that is the whole point of activedescendant.
+    expect(document.activeElement).toBe(search);
+
+    fireEvent.keyDown(search, { key: 'ArrowUp' });
+    expect(search.getAttribute('aria-activedescendant')).toBe(first);
+  });
+
+  it('marks only the active option as selected', () => {
+    const search = openCombobox();
+    fireEvent.keyDown(search, { key: 'ArrowDown' });
+
+    const selected = screen.getAllByRole('option').filter(
+      (option) => option.getAttribute('aria-selected') === 'true'
+    );
+
+    expect(selected).toHaveLength(1);
+    expect(selected[0].id).toBe(search.getAttribute('aria-activedescendant'));
+  });
+
+  it('jumps to the first and last option with Home and End', () => {
+    const search = openCombobox();
+    const options = screen.getAllByRole('option');
+
+    fireEvent.keyDown(search, { key: 'End' });
+    expect(search.getAttribute('aria-activedescendant')).toBe(options[options.length - 1].id);
+
+    fireEvent.keyDown(search, { key: 'Home' });
+    expect(search.getAttribute('aria-activedescendant')).toBe(options[0].id);
+  });
+
+  it('selects the active option on Enter', () => {
+    const onCountryChange = vi.fn();
+    render(<PhoneInput defaultCountry="US" searchable onCountryChange={onCountryChange} />);
+    fireEvent.click(getCountryButton());
+
+    const search = screen.getByRole('combobox');
+    fireEvent.change(search, { target: { value: 'United Kingdom' } });
+    fireEvent.keyDown(search, { key: 'Enter' });
+
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(onCountryChange).toHaveBeenCalled();
+    expect(getCountryButton().getAttribute('aria-label')).toMatch(/United Kingdom/i);
+  });
+
+  it('announces the filtered count and the empty state', () => {
+    const search = openCombobox();
+
+    fireEvent.change(search, { target: { value: 'United Kingdom' } });
+    expect(screen.getByRole('status').textContent).toBe('1 countries');
+
+    fireEvent.change(search, { target: { value: 'zzzzz' } });
+    expect(screen.getByRole('status').textContent).toBe('No countries found');
+  });
+
+  it('resets the active option to the first match when the query changes', () => {
+    const search = openCombobox();
+    fireEvent.keyDown(search, { key: 'End' });
+
+    fireEvent.change(search, { target: { value: 'ind' } });
+
+    const options = screen.getAllByRole('option');
+    expect(search.getAttribute('aria-activedescendant')).toBe(options[0].id);
+  });
+
+  it('keeps the options out of the tab order while the combobox has focus', () => {
+    openCombobox();
+
+    for (const option of screen.getAllByRole('option')) {
+      expect(option.getAttribute('tabindex')).toBe('-1');
+    }
+  });
+
+  it('keeps roving focus on the options when there is no search field', () => {
+    render(<PhoneInput defaultCountry="US" searchable={false} />);
+    fireEvent.click(getCountryButton());
+
+    expect(screen.queryByRole('combobox')).toBeNull();
+
+    const options = screen.getAllByRole('option');
+    const active = options.find((option) => option.getAttribute('tabindex') === '0');
+    expect(active).toBeTruthy();
+
+    fireEvent.keyDown(active!, { key: 'ArrowDown' });
+    expect(document.activeElement?.getAttribute('role')).toBe('option');
+  });
+});

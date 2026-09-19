@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-19
+
+### Added
+
+- The country search field is now wired as a WAI-ARIA combobox: `role="combobox"`, `aria-expanded`, `aria-controls`, `aria-autocomplete="list"` and `aria-activedescendant`. Focus stays in the search field while ArrowDown, ArrowUp, Home and End move the active option, so you can keep typing to filter. Enter selects the active option. Previously the arrow keys moved DOM focus into the list, which meant a screen reader never announced the active option and you could not keep typing.
+- A polite live region announcing how many countries the query matched, or that none did. New `countryResultsAnnouncement` label, localized in all bundled languages, with `{count}` as the placeholder.
+- Headless consumers get the same wiring: `countrySearchProps`, `listboxId`, `activeOptionId`, `activeCountry`, `highlightedIndex`, `setHighlightedIndex`, `moveHighlight` and `countryResultsText` from `usePhoneInput()`. `dropdownProps` now carries the listbox `id`, and `countryButtonProps` carries `aria-controls`.
+
+### Changed
+
+- `aria-selected` marks the active option rather than the committed country, which is what a single-select listbox should report. Opening the list makes the already selected country active, so it is announced first.
+- Options are out of the tab order while the combobox has focus. With `searchable={false}` there is no combobox and the options keep roving focus exactly as before.
+
 ## [0.5.0] - 2026-09-17
 
 ### Changed

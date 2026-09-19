@@ -7,6 +7,7 @@ export const DEFAULT_PHONE_INPUT_LABELS: PhoneInputLabels = {
   searchCountriesAriaLabel: 'Search countries',
   countryOptionsAriaLabel: 'Country options',
   countryButtonAriaLabel: 'Open country selector',
+  countryResultsAnnouncement: '{count} countries',
 };
 
 const LABELS_BY_LANGUAGE: Record<string, Partial<PhoneInputLabels>> = {
@@ -18,6 +19,7 @@ const LABELS_BY_LANGUAGE: Record<string, Partial<PhoneInputLabels>> = {
     searchCountriesAriaLabel: 'Rechercher des pays',
     countryOptionsAriaLabel: 'Options de pays',
     countryButtonAriaLabel: 'Ouvrir le sélecteur de pays',
+    countryResultsAnnouncement: '{count} pays',
   },
   de: {
     selectCountry: 'Land auswählen',
@@ -26,6 +28,7 @@ const LABELS_BY_LANGUAGE: Record<string, Partial<PhoneInputLabels>> = {
     searchCountriesAriaLabel: 'Länder suchen',
     countryOptionsAriaLabel: 'Länderoptionen',
     countryButtonAriaLabel: 'Länderauswahl öffnen',
+    countryResultsAnnouncement: '{count} Länder',
   },
   es: {
     selectCountry: 'Seleccionar país',
@@ -34,6 +37,7 @@ const LABELS_BY_LANGUAGE: Record<string, Partial<PhoneInputLabels>> = {
     searchCountriesAriaLabel: 'Buscar países',
     countryOptionsAriaLabel: 'Opciones de país',
     countryButtonAriaLabel: 'Abrir selector de país',
+    countryResultsAnnouncement: '{count} países',
   },
   pt: {
     selectCountry: 'Selecionar país',
@@ -42,6 +46,7 @@ const LABELS_BY_LANGUAGE: Record<string, Partial<PhoneInputLabels>> = {
     searchCountriesAriaLabel: 'Pesquisar países',
     countryOptionsAriaLabel: 'Opções de país',
     countryButtonAriaLabel: 'Abrir seletor de país',
+    countryResultsAnnouncement: '{count} países',
   },
   it: {
     selectCountry: 'Seleziona paese',
@@ -50,6 +55,7 @@ const LABELS_BY_LANGUAGE: Record<string, Partial<PhoneInputLabels>> = {
     searchCountriesAriaLabel: 'Cerca paesi',
     countryOptionsAriaLabel: 'Opzioni paese',
     countryButtonAriaLabel: 'Apri selettore paese',
+    countryResultsAnnouncement: '{count} paesi',
   },
   ja: {
     selectCountry: '国を選択',
@@ -58,6 +64,7 @@ const LABELS_BY_LANGUAGE: Record<string, Partial<PhoneInputLabels>> = {
     searchCountriesAriaLabel: '国を検索',
     countryOptionsAriaLabel: '国の候補',
     countryButtonAriaLabel: '国のセレクターを開く',
+    countryResultsAnnouncement: '{count} 件の国',
   },
   ko: {
     selectCountry: '국가 선택',
@@ -66,6 +73,7 @@ const LABELS_BY_LANGUAGE: Record<string, Partial<PhoneInputLabels>> = {
     searchCountriesAriaLabel: '국가 검색',
     countryOptionsAriaLabel: '국가 옵션',
     countryButtonAriaLabel: '국가 선택기 열기',
+    countryResultsAnnouncement: '국가 {count}개',
   },
   zh: {
     selectCountry: '选择国家',
@@ -74,6 +82,7 @@ const LABELS_BY_LANGUAGE: Record<string, Partial<PhoneInputLabels>> = {
     searchCountriesAriaLabel: '搜索国家',
     countryOptionsAriaLabel: '国家选项',
     countryButtonAriaLabel: '打开国家选择器',
+    countryResultsAnnouncement: '{count} 个国家',
   },
   ar: {
     selectCountry: 'اختر الدولة',
@@ -82,6 +91,7 @@ const LABELS_BY_LANGUAGE: Record<string, Partial<PhoneInputLabels>> = {
     searchCountriesAriaLabel: 'ابحث عن الدول',
     countryOptionsAriaLabel: 'خيارات الدول',
     countryButtonAriaLabel: 'افتح محدد الدولة',
+    countryResultsAnnouncement: '{count} دولة',
   },
   hi: {
     selectCountry: 'देश चुनें',
@@ -90,6 +100,7 @@ const LABELS_BY_LANGUAGE: Record<string, Partial<PhoneInputLabels>> = {
     searchCountriesAriaLabel: 'देश खोजें',
     countryOptionsAriaLabel: 'देश विकल्प',
     countryButtonAriaLabel: 'देश चयन खोलें',
+    countryResultsAnnouncement: '{count} देश',
   },
 };
 

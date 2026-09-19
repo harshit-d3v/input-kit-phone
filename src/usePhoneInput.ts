@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { PhoneInputOptions, UsePhoneInputReturn } from './types';
 import type { Country } from './countries';
 import { countries, detectCountryFromPhone, getCountryByCode, localizeCountries, localizeCountry } from './countries';
@@ -120,6 +120,11 @@ export function usePhoneInput(
   const [country, setCountry] = useState<Country | undefined>(initialCountry);
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  // The active option in the listbox. With the combobox pattern the search
+  // field keeps DOM focus, so this index is what `aria-activedescendant`
+  // points at rather than anything the browser focuses.
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const listboxId = useId();
 
   // Current phone value
   const phone = isControlled ? controlledValue : internalPhone;
@@ -233,6 +238,35 @@ export function usePhoneInput(
     () => filterCountries(localizedCountries, searchQuery, preferredCountries),
     [localizedCountries, searchQuery, preferredCountries]
   );
+
+  // Typing a new query rebuilds the list, so the previous active index points
+  // at an unrelated country. The APG combobox makes the first match active.
+  useEffect(() => {
+    setHighlightedIndex(0);
+  }, [searchQuery]);
+
+  // Keep the active index inside the list when it shrinks.
+  useEffect(() => {
+    setHighlightedIndex((current) => {
+      if (filteredCountries.length === 0) {
+        return 0;
+      }
+      return current >= filteredCountries.length ? filteredCountries.length - 1 : current;
+    });
+  }, [filteredCountries.length]);
+
+  // Opening should land on the country that is already chosen, so a screen
+  // reader announces the current value first instead of the top of the list.
+  const wasOpenRef = useRef(false);
+  useEffect(() => {
+    if (isOpen && !wasOpenRef.current) {
+      const selectedIndex = filteredCountries.findIndex((candidate) => candidate.code === country?.code);
+      setHighlightedIndex(selectedIndex >= 0 ? selectedIndex : 0);
+    }
+    wasOpenRef.current = isOpen;
+  }, [isOpen, filteredCountries, country?.code]);
+
+  const activeCountry = filteredCountries[highlightedIndex];
 
   useIsomorphicLayoutEffect(() => {
     const nextDigitIndex = pendingCaretDigitIndexRef.current;
@@ -398,11 +432,30 @@ export function usePhoneInput(
     []
   );
 
+  const activeOptionId = activeCountry ? getCountryOptionId(activeCountry.code) : undefined;
+
+  // ponytail: one plural form per locale, so a single match reads "1 countries".
+  // Pass a `labels.countryResultsAnnouncement` override if that matters to you;
+  // real plural rules need a category map per locale, which this does not carry.
+  const countryResultsText = filteredCountries.length === 0
+    ? resolvedLabels.noCountriesFound
+    : resolvedLabels.countryResultsAnnouncement.replace('{count}', String(filteredCountries.length));
+
+  const moveHighlight = useCallback(
+    (nextIndex: number) => {
+      const lastIndex = filteredCountries.length - 1;
+      setHighlightedIndex(lastIndex < 0 ? 0 : Math.min(Math.max(nextIndex, 0), lastIndex));
+    },
+    [filteredCountries.length]
+  );
+
   const getCountryOptionProps = useCallback(
     (optionCountry: Country, index: number) => ({
       id: getCountryOptionId(optionCountry.code),
       role: 'option' as const,
-      'aria-selected': optionCountry.code === country?.code,
+      // Selection follows the active option in a single-select listbox, so this
+      // tracks the highlight rather than the committed country.
+      'aria-selected': index === highlightedIndex,
       onClick: () => selectCountry(optionCountry),
       onKeyDown: (event: { key: string; preventDefault: () => void }) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -416,7 +469,7 @@ export function usePhoneInput(
       },
       tabIndex: index === 0 ? 0 : -1,
     }),
-    [closeDropdown, country?.code, getCountryOptionId, selectCountry]
+    [closeDropdown, highlightedIndex, getCountryOptionId, selectCountry]
   );
 
   return {
@@ -432,6 +485,9 @@ export function usePhoneInput(
     searchQuery,
     labels: resolvedLabels,
     formattedValue: formattedPhone,
+    highlightedIndex,
+    activeCountry,
+    countryResultsText,
     // Actions
     setPhone,
     setValue: setPhone,
@@ -443,6 +499,8 @@ export function usePhoneInput(
     closeDropdown,
     close: closeDropdown,
     setSearchQuery,
+    setHighlightedIndex,
+    moveHighlight,
     clear,
     // Props
     inputProps: {
@@ -462,6 +520,20 @@ export function usePhoneInput(
       'aria-expanded': isOpen,
       'aria-haspopup': 'listbox',
       'aria-label': countryButtonAriaLabel,
+      'aria-controls': listboxId,
+    },
+    // The search field is the combobox: it keeps focus while the arrow keys
+    // move `aria-activedescendant` through the listbox.
+    countrySearchProps: {
+      role: 'combobox' as const,
+      value: searchQuery,
+      onChange: (event: { target: { value: string } }) => setSearchQuery(event.target.value),
+      'aria-expanded': isOpen,
+      'aria-controls': listboxId,
+      'aria-autocomplete': 'list' as const,
+      'aria-activedescendant': activeOptionId,
+      'aria-label': resolvedLabels.searchCountriesAriaLabel,
+      placeholder: resolvedLabels.countrySearchPlaceholder,
     },
     countrySelectorProps: {
       onClick: toggleDropdown,
@@ -470,9 +542,12 @@ export function usePhoneInput(
       'aria-label': countryButtonAriaLabel,
     },
     dropdownProps: {
+      id: listboxId,
       role: 'listbox',
       'aria-label': resolvedLabels.countryOptionsAriaLabel,
     },
+    listboxId,
+    activeOptionId,
     getCountryOptionId,
     filteredCountries,
     countries: filteredCountries,

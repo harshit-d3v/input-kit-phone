@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useRef, useState, type MutableRefObject, type Ref } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, type MutableRefObject, type Ref } from 'react';
 import { usePhoneInput } from './usePhoneInput';
 import type { PhoneInputProps } from './types';
 import type { Country } from './countries';
@@ -85,25 +85,26 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
     const inputRef = useRef<HTMLInputElement | null>(null);
     const optionRefs = useRef<Array<HTMLLIElement | null>>([]);
     const countryButtonRef = useRef<HTMLButtonElement | null>(null);
-    const [highlightedIndex, setHighlightedIndex] = useState(0);
-    const listboxId = useId();
 
     const {
       inputProps,
       countryButtonProps,
+      countrySearchProps,
       dropdownProps,
       country,
       filteredCountries,
       isOpen,
       isValid,
-      searchQuery,
-      setSearchQuery,
       setCountry,
       selectCountry,
       clear,
       openDropdown,
       closeDropdown,
       getCountryOptionId,
+      highlightedIndex,
+      setHighlightedIndex,
+      moveHighlight,
+      countryResultsText,
       labels,
     } = usePhoneInput({
       value,
@@ -146,7 +147,6 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
     // Handle country option click
     const handleCountryClick = useCallback((c: Country) => {
       selectCountry(c);
-      setHighlightedIndex(0);
       returnFocusToButton();
     }, [selectCountry, returnFocusToButton]);
 
@@ -157,7 +157,6 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
         case ' ':
           e.preventDefault();
           selectCountry(c);
-          setHighlightedIndex(0);
           returnFocusToButton();
           break;
         case 'ArrowDown':
@@ -194,7 +193,7 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
           returnFocusToButton();
           break;
       }
-    }, [selectCountry, filteredCountries.length, closeDropdown, returnFocusToButton]);
+    }, [selectCountry, filteredCountries.length, closeDropdown, returnFocusToButton, setHighlightedIndex]);
 
     useEffect(() => {
       if (!isOpen) {
@@ -224,18 +223,18 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
       };
     }, [isOpen, closeDropdown]);
 
+    // Focus no longer follows the active option in the combobox, so the list
+    // has to be scrolled manually or the highlight walks off screen.
     useEffect(() => {
-      if (filteredCountries.length === 0) {
-        if (highlightedIndex !== 0) {
-          setHighlightedIndex(0);
-        }
+      if (!isOpen || !searchable) {
         return;
       }
-
-      if (highlightedIndex >= filteredCountries.length) {
-        setHighlightedIndex(filteredCountries.length - 1);
+      const activeOption = optionRefs.current[highlightedIndex];
+      // jsdom and happy-dom do not implement scrollIntoView.
+      if (typeof activeOption?.scrollIntoView === 'function') {
+        activeOption.scrollIntoView({ block: 'nearest' });
       }
-    }, [filteredCountries.length, highlightedIndex]);
+    }, [isOpen, searchable, highlightedIndex]);
 
     // Expose imperative methods
     useImperativeHandle(ref, () => ({
@@ -248,18 +247,42 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
       close: closeDropdown,
     }));
 
-    // Handle keyboard navigation from the search input into the list
+    // Combobox keys. Focus stays in the search field; these only move the
+    // active option that `aria-activedescendant` points at.
     const handleSearchKeyDown = useCallback((e: React.KeyboardEvent) => {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setHighlightedIndex(0);
-        optionRefs.current[0]?.focus();
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        closeDropdown();
-        returnFocusToButton();
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          moveHighlight(highlightedIndex + 1);
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          moveHighlight(highlightedIndex - 1);
+          break;
+        case 'Home':
+          e.preventDefault();
+          moveHighlight(0);
+          break;
+        case 'End':
+          e.preventDefault();
+          moveHighlight(filteredCountries.length - 1);
+          break;
+        case 'Enter': {
+          const active = filteredCountries[highlightedIndex];
+          if (active) {
+            e.preventDefault();
+            selectCountry(active);
+            returnFocusToButton();
+          }
+          break;
+        }
+        case 'Escape':
+          e.preventDefault();
+          closeDropdown();
+          returnFocusToButton();
+          break;
       }
-    }, [closeDropdown, returnFocusToButton]);
+    }, [closeDropdown, returnFocusToButton, moveHighlight, highlightedIndex, filteredCountries, selectCountry]);
 
     // Render default UI
     return (
@@ -272,7 +295,6 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
           className={selectorClassName}
           disabled={disabled}
           tabIndex={disabled ? -1 : 0}
-          aria-controls={listboxId}
         >
           {country ? (
             <>
@@ -308,25 +330,30 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
             {searchable && (
               <div className="phone-input-search">
                 <input
+                  {...countrySearchProps}
                   type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={handleSearchKeyDown}
-                  placeholder={labels.countrySearchPlaceholder}
                   autoFocus
-                  aria-controls={listboxId}
-                  aria-label={labels.searchCountriesAriaLabel}
                 />
               </div>
             )}
 
-            {/* Country List */}
-            {/* Roving focus is the single focus model here; aria-activedescendant
-                is intentionally not set alongside it. */}
+            {/* Filtered result count, announced politely so a screen reader
+                user knows how many matches their query left. */}
+            <div
+              role="status"
+              aria-live="polite"
+              style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}
+            >
+              {countryResultsText}
+            </div>
+
+            {/* Country List. With a search field the combobox owns focus and
+                drives aria-activedescendant; without one the options keep
+                roving focus. */}
             <ul
               {...dropdownProps}
               className="phone-input-country-list"
-              id={listboxId}
             >
               {filteredCountries.map((c, index) => (
                 <li
@@ -336,14 +363,14 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
                     optionRefs.current[index] = element;
                   }}
                   role="option"
-                  aria-selected={c.code === country?.code}
+                  aria-selected={index === highlightedIndex}
                   className={`phone-input-country-option ${
                     c.code === country?.code ? 'selected' : ''
                   } ${index === highlightedIndex ? 'highlighted' : ''}`}
                   onClick={() => handleCountryClick(c)}
                   onKeyDown={(e) => handleCountryKeyDown(e, c, index)}
                   onMouseEnter={() => setHighlightedIndex(index)}
-                  tabIndex={index === highlightedIndex ? 0 : -1}
+                  tabIndex={searchable ? -1 : index === highlightedIndex ? 0 : -1}
                 >
                   <span className="phone-input-flag">{c.flag}</span>
                   <span className="phone-input-country-name">{getCountryDisplayName(c)}</span>

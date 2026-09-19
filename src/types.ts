@@ -11,6 +11,8 @@ export interface PhoneInputLabels {
   searchCountriesAriaLabel: string;
   countryOptionsAriaLabel: string;
   countryButtonAriaLabel: string;
+  /** Announced when the country list is filtered. `{count}` is replaced with the number of matches. */
+  countryResultsAnnouncement: string;
 }
 
 export interface PhoneInputOptions {
@@ -103,12 +105,35 @@ export interface UsePhoneInputReturn extends PhoneInputState, PhoneInputActions 
   inputProps: InputHTMLAttributes<HTMLInputElement> & {
     ref: RefObject<HTMLInputElement | null>;
   };
+  /** Index of the active option in `filteredCountries` */
+  highlightedIndex: number;
+  /** The active option, the one `aria-activedescendant` points at */
+  activeCountry: Country | undefined;
+  /** Localized text for the results live region, e.g. "12 countries" */
+  countryResultsText: string;
+  /** Set the active option directly */
+  setHighlightedIndex: (index: number) => void;
+  /** Move the active option, clamped to the filtered list */
+  moveHighlight: (nextIndex: number) => void;
   /** Props for the country selector button */
   countryButtonProps: {
     onClick: () => void;
     'aria-expanded': boolean;
     'aria-haspopup': 'listbox';
     'aria-label': string;
+    'aria-controls': string;
+  };
+  /** Props for the country search field, wired as an ARIA combobox */
+  countrySearchProps: {
+    role: 'combobox';
+    value: string;
+    onChange: (event: { target: { value: string } }) => void;
+    'aria-expanded': boolean;
+    'aria-controls': string;
+    'aria-autocomplete': 'list';
+    'aria-activedescendant': string | undefined;
+    'aria-label': string;
+    placeholder: string;
   };
   /** @deprecated Use countryButtonProps instead */
   countrySelectorProps: {
@@ -119,10 +144,14 @@ export interface UsePhoneInputReturn extends PhoneInputState, PhoneInputActions 
   };
   /** Props for a country options list */
   dropdownProps: {
+    id: string;
     role: 'listbox';
     'aria-label': string;
-    'aria-activedescendant'?: string;
   };
+  /** Id of the listbox, the target of `aria-controls` */
+  listboxId: string;
+  /** Id of the active option, undefined when the list is empty */
+  activeOptionId: string | undefined;
   /** Filtered list of countries based on search */
   filteredCountries: Country[];
   /** @deprecated Use filteredCountries instead */

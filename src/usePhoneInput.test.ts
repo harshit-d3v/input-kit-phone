@@ -236,6 +236,51 @@ describe('usePhoneInput', () => {
     expect(props.onKeyDown).toBeDefined();
   });
 
+  it('should expose combobox props wired to the listbox', () => {
+    const { result } = renderHook(() => usePhoneInput({ defaultCountry: 'US' }));
+
+    const search = result.current.countrySearchProps;
+    expect(search.role).toBe('combobox');
+    expect(search['aria-autocomplete']).toBe('list');
+    expect(search['aria-controls']).toBe(result.current.dropdownProps.id);
+    expect(result.current.countryButtonProps['aria-controls']).toBe(result.current.dropdownProps.id);
+  });
+
+  it('should move the active option and report it as activedescendant', () => {
+    const { result } = renderHook(() => usePhoneInput({ defaultCountry: 'US' }));
+
+    const first = result.current.activeCountry;
+    act(() => result.current.moveHighlight(1));
+
+    expect(result.current.highlightedIndex).toBe(1);
+    expect(result.current.activeCountry).not.toBe(first);
+    expect(result.current.activeOptionId).toBe(
+      result.current.getCountryOptionId(result.current.activeCountry!.code)
+    );
+    // aria-selected follows the active option, not the committed country.
+    expect(result.current.getCountryOptionProps(result.current.activeCountry!, 1)['aria-selected']).toBe(true);
+  });
+
+  it('should clamp the active option to the filtered list', () => {
+    const { result } = renderHook(() => usePhoneInput());
+
+    act(() => result.current.moveHighlight(99999));
+    expect(result.current.highlightedIndex).toBe(result.current.filteredCountries.length - 1);
+
+    act(() => result.current.moveHighlight(-5));
+    expect(result.current.highlightedIndex).toBe(0);
+  });
+
+  it('should describe the filtered result count', () => {
+    const { result } = renderHook(() => usePhoneInput());
+
+    act(() => result.current.setSearchQuery('United Kingdom'));
+    expect(result.current.countryResultsText).toBe('1 countries');
+
+    act(() => result.current.setSearchQuery('zzzzz'));
+    expect(result.current.countryResultsText).toBe('No countries found');
+  });
+
   it('should handle controlled value', () => {
     const { result, rerender } = renderHook(
       ({ value }) => usePhoneInput({ value }),
