@@ -70,7 +70,6 @@ export const PhoneInput = React.forwardRef<HTMLInputElement, PhoneInputProps>(
     ref
   ) {
     const triggerRef = React.useRef<HTMLButtonElement | null>(null);
-    const localInputRef = React.useRef<HTMLInputElement | null>(null);
     const optionRefs = React.useRef<Array<HTMLLIElement | null>>([]);
     const shouldReturnFocusRef = React.useRef(false);
     const pendingKeyUpCleanupRef = React.useRef<(() => void) | null>(null);
@@ -107,8 +106,6 @@ export const PhoneInput = React.forwardRef<HTMLInputElement, PhoneInputProps>(
 
     const mergedInputRef = React.useCallback(
       (element: HTMLInputElement | null) => {
-        localInputRef.current = element;
-
         const hookRef = inputProps.ref;
         if (typeof hookRef === 'function') {
           hookRef(element);
@@ -195,18 +192,22 @@ export const PhoneInput = React.forwardRef<HTMLInputElement, PhoneInputProps>(
           returnFocusToButton();
           return;
         }
-        if (event.key === 'ArrowDown' && index < filteredCountries.length - 1) {
+        if (event.key === 'ArrowDown') {
           event.preventDefault();
-          const next = index + 1;
-          setHighlightedIndex(next);
-          optionRefs.current[next]?.focus();
+          if (index < filteredCountries.length - 1) {
+            const next = index + 1;
+            setHighlightedIndex(next);
+            optionRefs.current[next]?.focus();
+          }
           return;
         }
-        if (event.key === 'ArrowUp' && index > 0) {
+        if (event.key === 'ArrowUp') {
           event.preventDefault();
-          const prev = index - 1;
-          setHighlightedIndex(prev);
-          optionRefs.current[prev]?.focus();
+          if (index > 0) {
+            const prev = index - 1;
+            setHighlightedIndex(prev);
+            optionRefs.current[prev]?.focus();
+          }
           return;
         }
         if (event.key === 'Home') {
@@ -375,7 +376,7 @@ export const PhoneInput = React.forwardRef<HTMLInputElement, PhoneInputProps>(
             name={name}
             value={
               formValue === 'e164'
-                ? e164 ?? (phone ? addDialCode(phone, country) : '')
+                ? e164 ?? ''
                 : phone
                   ? addDialCode(phone, country)
                   : ''

@@ -829,6 +829,50 @@ describe('usePhoneInput', () => {
         } as unknown as React.KeyboardEvent<HTMLInputElement>);
       });
       expect(rangePreventDefault).not.toHaveBeenCalled();
+
+      const intlDelete = renderHook(() =>
+        usePhoneInput({ defaultCountry: 'US', defaultValue: '+14155552671' })
+      );
+      const leadingPlusPrevent = vi.fn();
+      act(() => {
+        intlDelete.result.current.inputProps.onKeyDown?.({
+          key: 'Delete',
+          preventDefault: leadingPlusPrevent,
+          currentTarget: {
+            selectionStart: 0,
+            selectionEnd: 0,
+            readOnly: false,
+          },
+        } as unknown as React.KeyboardEvent<HTMLInputElement>);
+      });
+      expect(leadingPlusPrevent).not.toHaveBeenCalled();
+      expect(intlDelete.result.current.phone).toBe('+14155552671');
+
+      const modifierPrevent = vi.fn();
+      act(() => {
+        result.current.inputProps.onKeyDown?.({
+          key: 'Backspace',
+          metaKey: true,
+          preventDefault: modifierPrevent,
+          currentTarget: {
+            selectionStart: 6,
+            selectionEnd: 6,
+            readOnly: false,
+          },
+        } as unknown as React.KeyboardEvent<HTMLInputElement>);
+        result.current.inputProps.onKeyDown?.({
+          key: 'Backspace',
+          ctrlKey: true,
+          preventDefault: modifierPrevent,
+          currentTarget: {
+            selectionStart: 6,
+            selectionEnd: 6,
+            readOnly: false,
+          },
+        } as unknown as React.KeyboardEvent<HTMLInputElement>);
+      });
+      expect(modifierPrevent).not.toHaveBeenCalled();
+      expect(result.current.phone).toBe('415552671');
     });
 
     it('resolves country synchronously from initial E.164 defaultValue without mount onCountryChange', () => {
@@ -873,6 +917,35 @@ describe('usePhoneInput', () => {
       });
       expect(kz.result.current.phone).toBe('7011234567');
       expect(kz.result.current.e164).toBe('+77011234567');
+
+      const indiaReplace = renderHook(() =>
+        usePhoneInput({ defaultCountry: 'IN', defaultValue: '8123456789' })
+      );
+      act(() => {
+        indiaReplace.result.current.inputProps.onChange?.({
+          target: { value: '918123456789', selectionStart: 12, setSelectionRange: vi.fn() },
+        } as unknown as React.ChangeEvent<HTMLInputElement>);
+      });
+      expect(indiaReplace.result.current.phone).toBe('8123456789');
+      expect(indiaReplace.result.current.e164).toBe('+918123456789');
+
+      const deLocal = renderHook(() => usePhoneInput({ defaultCountry: 'DE' }));
+      act(() => {
+        deLocal.result.current.inputProps.onChange?.({
+          target: { value: '4921123456', selectionStart: 10, setSelectionRange: vi.fn() },
+        } as unknown as React.ChangeEvent<HTMLInputElement>);
+      });
+      expect(deLocal.result.current.phone).toBe('4921123456');
+      expect(deLocal.result.current.e164).toBe('+494921123456');
+
+      const seLocal = renderHook(() => usePhoneInput({ defaultCountry: 'SE' }));
+      act(() => {
+        seLocal.result.current.inputProps.onChange?.({
+          target: { value: '468123456', selectionStart: 9, setSelectionRange: vi.fn() },
+        } as unknown as React.ChangeEvent<HTMLInputElement>);
+      });
+      expect(seLocal.result.current.phone).toBe('468123456');
+      expect(seLocal.result.current.e164).toBe('+46468123456');
     });
 
     it('preserves custom string error messages returned from validator', () => {

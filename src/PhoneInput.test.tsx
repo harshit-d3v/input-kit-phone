@@ -330,6 +330,20 @@ describe('PhoneInput country combobox', () => {
 
     rerender(
       <form>
+        <PhoneInput name="phone" defaultCountry="US" value="415" />
+      </form>
+    );
+    expect(new FormData(form).get('phone')).toBe('');
+
+    rerender(
+      <form>
+        <PhoneInput name="phone" defaultCountry="US" value="4155552671" validator={() => false} />
+      </form>
+    );
+    expect(new FormData(form).get('phone')).toBe('');
+
+    rerender(
+      <form>
         <PhoneInput name="phone" defaultCountry="US" value="415" formValue="full" />
       </form>
     );

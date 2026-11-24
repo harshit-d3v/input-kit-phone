@@ -362,7 +362,7 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
             name={name}
             value={
               formValue === 'e164'
-                ? e164 ?? (phone ? addDialCode(phone, country) : '')
+                ? e164 ?? ''
                 : phone
                   ? addDialCode(phone, country)
                   : ''

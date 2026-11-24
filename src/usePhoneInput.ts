@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { parsePhoneNumberFromString } from 'libphonenumber-js';
+import { parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js';
 import type { PhoneInputOptions, UsePhoneInputReturn } from './types';
 import type { Country } from './countries';
 import { countries, detectCountryFromPhone, getCountryByCode, localizeCountries, localizeCountry } from './countries';
@@ -130,19 +130,21 @@ export function usePhoneInput(
   }, [isCountryControlled, controlledCountry, availableCountries]);
 
   // Initialize state (resolve international initial values synchronously to avoid mount flicker)
-  const initialPhone = controlledValue ?? defaultValue;
-  const initialDetectedCountry =
-    resolvedAutoDetect && initialPhone ? detectCountryFromPhone(initialPhone) : undefined;
-  const initialMatchedCountry =
-    initialDetectedCountry && availableCountries.some((candidate) => candidate.code === initialDetectedCountry.code)
-      ? initialDetectedCountry
-      : undefined;
-  const initialCountry =
-    initialMatchedCountry ||
-    availableCountries.find((candidate) => candidate.code === defaultCountry) ||
-    availableCountries[0];
   const [internalPhone, setInternalPhone] = useState(defaultValue);
-  const [internalCountry, setInternalCountry] = useState<Country | undefined>(initialCountry);
+  const [internalCountry, setInternalCountry] = useState<Country | undefined>(() => {
+    const initialPhone = controlledValue ?? defaultValue;
+    const initialDetectedCountry =
+      resolvedAutoDetect && initialPhone ? detectCountryFromPhone(initialPhone) : undefined;
+    const initialMatchedCountry =
+      initialDetectedCountry && availableCountries.some((candidate) => candidate.code === initialDetectedCountry.code)
+        ? initialDetectedCountry
+        : undefined;
+    return (
+      initialMatchedCountry ||
+      availableCountries.find((candidate) => candidate.code === defaultCountry) ||
+      availableCountries[0]
+    );
+  });
   const country = isCountryControlled ? resolvedControlledCountry : internalCountry;
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setRawSearchQuery] = useState('');
@@ -453,28 +455,31 @@ export function usePhoneInput(
       // Browser autofill or paste can include the selected country's dial code
       // without a leading '+' (e.g. "918123456789" inside IN +91). Strip the
       // redundant prefix before formatting or truncation damages the number.
-      const isBulkInsertion = cleanPhone(unformatted).length - cleanPhone(phone).length >= 4;
-      if (!isInternationalEntry && isBulkInsertion && country) {
-        const digits = cleanPhone(unformatted);
+      const digits = cleanPhone(unformatted);
+      const isBulkInsertion = digits.length - cleanPhone(formattedPhone).length >= 4;
+      if (!isInternationalEntry && country && (isBulkInsertion || isPhoneTooLong(digits, country))) {
         const matchesCountryDialCode = country.dialCodes.some((dialCode) =>
           digits.startsWith(dialCode.replace('+', ''))
         );
         if (matchesCountryDialCode) {
-          const asIntl = parsePhoneNumberFromString(`+${digits}`);
-          if (
-            asIntl?.isValid() &&
-            asIntl.country === country.code &&
-            asIntl.nationalNumber.length < digits.length
-          ) {
-            const stripped = asIntl.nationalNumber;
-            const formattedStripped = formatOnType ? formatPhone(stripped, country) : stripped;
-            event.target.value = formattedStripped;
-            if (typeof event.target.setSelectionRange === 'function') {
-              event.target.setSelectionRange(formattedStripped.length, formattedStripped.length);
+          const asNational = parsePhoneNumberFromString(digits, country.code as CountryCode);
+          if (!(asNational?.isValid() && asNational.nationalNumber === digits)) {
+            const asIntl = parsePhoneNumberFromString(`+${digits}`);
+            if (
+              asIntl?.isValid() &&
+              asIntl.country === country.code &&
+              asIntl.nationalNumber.length < digits.length
+            ) {
+              const stripped = asIntl.nationalNumber;
+              const formattedStripped = formatOnType ? formatPhone(stripped, country) : stripped;
+              event.target.value = formattedStripped;
+              if (typeof event.target.setSelectionRange === 'function') {
+                event.target.setSelectionRange(formattedStripped.length, formattedStripped.length);
+              }
+              pendingCaretDigitIndexRef.current = stripped.length;
+              setPhone(stripped);
+              return;
             }
-            pendingCaretDigitIndexRef.current = stripped.length;
-            setPhone(stripped);
-            return;
           }
         }
       }
@@ -510,7 +515,7 @@ export function usePhoneInput(
       pendingCaretDigitIndexRef.current = countDigitsBeforePosition(rawValue, caretPosition);
       setPhone(unformatted);
     },
-    [setPhone, phone, country, formatOnType]
+    [setPhone, phone, formattedPhone, country, formatOnType]
   );
 
   // Skip over formatting punctuation on Backspace/Delete so the cursor does not
@@ -518,6 +523,9 @@ export function usePhoneInput(
   const handleInputKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLInputElement>) => {
       if (!formatOnType || event.currentTarget.readOnly) {
+        return;
+      }
+      if (event.ctrlKey || event.metaKey || event.altKey) {
         return;
       }
       if (event.key !== 'Backspace' && event.key !== 'Delete') {
@@ -555,6 +563,9 @@ export function usePhoneInput(
       }
 
       if (start >= formattedPhone.length || /\d/.test(formattedPhone[start])) {
+        return;
+      }
+      if (start === 0 && formattedPhone[0] === '+') {
         return;
       }
 
