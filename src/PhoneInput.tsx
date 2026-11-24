@@ -2,7 +2,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, type M
 import { usePhoneInput } from './usePhoneInput';
 import type { PhoneInputProps } from './types';
 import type { Country } from './countries';
-import { getCountryDisplayName } from './utils';
+import { addDialCode, getCountryDisplayName } from './utils';
 
 // SVG Icon Components (Lucide-style)
 const ChevronUpIcon = ({ size = 12 }: { size?: number }) => (
@@ -72,6 +72,7 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
       containerClassName,
       searchable = true,
       renderFlag,
+      formValue = 'e164',
       placeholder,
       disabled,
       readOnly,
@@ -94,6 +95,8 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
       countryButtonProps,
       countrySearchProps,
       dropdownProps,
+      phone,
+      e164,
       country,
       filteredCountries,
       isOpen,
@@ -344,7 +347,7 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
           {...inputProps}
           ref={mergedInputRef}
           id={id}
-          name={name}
+          name={name && formValue === 'national' ? name : undefined}
           className={inputClassName}
           placeholder={placeholder || inputProps.placeholder}
           disabled={disabled}
@@ -352,6 +355,21 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
           aria-label={ariaLabel}
           aria-labelledby={ariaLabelledBy}
         />
+
+        {name && formValue !== 'national' && (
+          <input
+            type="hidden"
+            name={name}
+            value={
+              formValue === 'e164'
+                ? e164 ?? (phone ? addDialCode(phone, country) : '')
+                : phone
+                  ? addDialCode(phone, country)
+                  : ''
+            }
+            disabled={disabled}
+          />
+        )}
 
         {/* Filtered result count, kept mounted when searchable so screen readers
             already track the live region before the dropdown opens. */}

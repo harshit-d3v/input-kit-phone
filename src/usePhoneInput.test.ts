@@ -755,4 +755,138 @@ describe('usePhoneInput', () => {
       expect(result.current.isValid).toBe(true);
     });
   });
+
+  describe('caret punctuation deletion, sync E.164 init, autofill, and validator messages', () => {
+    it('deletes the neighboring digit when Backspace or Delete hits formatting punctuation', () => {
+      const { result } = renderHook(() =>
+        usePhoneInput({ defaultCountry: 'US', defaultValue: '4155552671' })
+      );
+      expect(result.current.formattedValue).toBe('(415) 555-2671');
+
+      const backspacePreventDefault = vi.fn();
+      act(() => {
+        result.current.inputProps.onKeyDown?.({
+          key: 'Backspace',
+          preventDefault: backspacePreventDefault,
+          currentTarget: {
+            selectionStart: 6,
+            selectionEnd: 6,
+            readOnly: false,
+          },
+        } as unknown as React.KeyboardEvent<HTMLInputElement>);
+      });
+      expect(backspacePreventDefault).toHaveBeenCalledTimes(1);
+      expect(result.current.phone).toBe('415552671');
+
+      const india = renderHook(() =>
+        usePhoneInput({ defaultCountry: 'IN', defaultValue: '8123456789' })
+      );
+      expect(india.result.current.formattedValue).toBe('81234 56789');
+
+      const indiaBackspacePrevent = vi.fn();
+      act(() => {
+        india.result.current.inputProps.onKeyDown?.({
+          key: 'Backspace',
+          preventDefault: indiaBackspacePrevent,
+          currentTarget: {
+            selectionStart: 6,
+            selectionEnd: 6,
+            readOnly: false,
+          },
+        } as unknown as React.KeyboardEvent<HTMLInputElement>);
+      });
+      expect(indiaBackspacePrevent).toHaveBeenCalledTimes(1);
+      expect(india.result.current.phone).toBe('812356789');
+
+      const usDelete = renderHook(() =>
+        usePhoneInput({ defaultCountry: 'US', defaultValue: '4155552671' })
+      );
+      const deletePreventDefault = vi.fn();
+      act(() => {
+        usDelete.result.current.inputProps.onKeyDown?.({
+          key: 'Delete',
+          preventDefault: deletePreventDefault,
+          currentTarget: {
+            selectionStart: 4,
+            selectionEnd: 4,
+            readOnly: false,
+          },
+        } as unknown as React.KeyboardEvent<HTMLInputElement>);
+      });
+      expect(deletePreventDefault).toHaveBeenCalledTimes(1);
+      expect(usDelete.result.current.phone).toBe('415552671');
+
+      const rangePreventDefault = vi.fn();
+      act(() => {
+        usDelete.result.current.inputProps.onKeyDown?.({
+          key: 'Backspace',
+          preventDefault: rangePreventDefault,
+          currentTarget: {
+            selectionStart: 1,
+            selectionEnd: 5,
+            readOnly: false,
+          },
+        } as unknown as React.KeyboardEvent<HTMLInputElement>);
+      });
+      expect(rangePreventDefault).not.toHaveBeenCalled();
+    });
+
+    it('resolves country synchronously from initial E.164 defaultValue without mount onCountryChange', () => {
+      const onCountryChange = vi.fn();
+      const { result } = renderHook(() =>
+        usePhoneInput({
+          defaultCountry: 'US',
+          defaultValue: '+447400123456',
+          onCountryChange,
+        })
+      );
+
+      expect(result.current.country?.code).toBe('GB');
+      expect(onCountryChange).not.toHaveBeenCalled();
+    });
+
+    it('strips duplicated country dial codes on autofill without breaking Kazakhstan numbers', () => {
+      const india = renderHook(() => usePhoneInput({ defaultCountry: 'IN' }));
+      act(() => {
+        india.result.current.inputProps.onChange?.({
+          target: { value: '918123456789', selectionStart: 12, setSelectionRange: vi.fn() },
+        } as unknown as React.ChangeEvent<HTMLInputElement>);
+      });
+      expect(india.result.current.phone).toBe('8123456789');
+      expect(india.result.current.formattedValue).toBe('81234 56789');
+      expect(india.result.current.e164).toBe('+918123456789');
+
+      const uk = renderHook(() => usePhoneInput({ defaultCountry: 'GB' }));
+      act(() => {
+        uk.result.current.inputProps.onChange?.({
+          target: { value: '447400123456', selectionStart: 12, setSelectionRange: vi.fn() },
+        } as unknown as React.ChangeEvent<HTMLInputElement>);
+      });
+      expect(uk.result.current.phone).toBe('7400123456');
+      expect(uk.result.current.e164).toBe('+447400123456');
+
+      const kz = renderHook(() => usePhoneInput({ defaultCountry: 'KZ' }));
+      act(() => {
+        kz.result.current.inputProps.onChange?.({
+          target: { value: '7011234567', selectionStart: 10, setSelectionRange: vi.fn() },
+        } as unknown as React.ChangeEvent<HTMLInputElement>);
+      });
+      expect(kz.result.current.phone).toBe('7011234567');
+      expect(kz.result.current.e164).toBe('+77011234567');
+    });
+
+    it('preserves custom string error messages returned from validator', () => {
+      const { result } = renderHook(() =>
+        usePhoneInput({
+          defaultCountry: 'US',
+          defaultValue: '4155552671',
+          validator: () => 'Company policy blocks this number',
+        })
+      );
+
+      expect(result.current.isValid).toBe(false);
+      expect(result.current.validationReason).toBe('invalid');
+      expect(result.current.error).toBe('Company policy blocks this number');
+    });
+  });
 });

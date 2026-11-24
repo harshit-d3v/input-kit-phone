@@ -129,8 +129,18 @@ export function usePhoneInput(
     );
   }, [isCountryControlled, controlledCountry, availableCountries]);
 
-  // Initialize state
-  const initialCountry = availableCountries.find((candidate) => candidate.code === defaultCountry) || availableCountries[0];
+  // Initialize state (resolve international initial values synchronously to avoid mount flicker)
+  const initialPhone = controlledValue ?? defaultValue;
+  const initialDetectedCountry =
+    resolvedAutoDetect && initialPhone ? detectCountryFromPhone(initialPhone) : undefined;
+  const initialMatchedCountry =
+    initialDetectedCountry && availableCountries.some((candidate) => candidate.code === initialDetectedCountry.code)
+      ? initialDetectedCountry
+      : undefined;
+  const initialCountry =
+    initialMatchedCountry ||
+    availableCountries.find((candidate) => candidate.code === defaultCountry) ||
+    availableCountries[0];
   const [internalPhone, setInternalPhone] = useState(defaultValue);
   const [internalCountry, setInternalCountry] = useState<Country | undefined>(initialCountry);
   const country = isCountryControlled ? resolvedControlledCountry : internalCountry;
@@ -224,6 +234,15 @@ export function usePhoneInput(
   const validation = useMemo(() => {
     const result = validatePhoneNumber(phone, country, required, validator);
     if (result.isValid || !result.reason) {
+      return result;
+    }
+
+    if (
+      result.reason === 'invalid' &&
+      validator &&
+      result.message &&
+      result.message !== 'Invalid phone number'
+    ) {
       return result;
     }
 
@@ -429,13 +448,43 @@ export function usePhoneInput(
         }
       }
 
+      const isInternationalEntry = unformatted.startsWith('+') || unformatted.startsWith('00');
+
+      // Browser autofill or paste can include the selected country's dial code
+      // without a leading '+' (e.g. "918123456789" inside IN +91). Strip the
+      // redundant prefix before formatting or truncation damages the number.
+      const isBulkInsertion = cleanPhone(unformatted).length - cleanPhone(phone).length >= 4;
+      if (!isInternationalEntry && isBulkInsertion && country) {
+        const digits = cleanPhone(unformatted);
+        const matchesCountryDialCode = country.dialCodes.some((dialCode) =>
+          digits.startsWith(dialCode.replace('+', ''))
+        );
+        if (matchesCountryDialCode) {
+          const asIntl = parsePhoneNumberFromString(`+${digits}`);
+          if (
+            asIntl?.isValid() &&
+            asIntl.country === country.code &&
+            asIntl.nationalNumber.length < digits.length
+          ) {
+            const stripped = asIntl.nationalNumber;
+            const formattedStripped = formatOnType ? formatPhone(stripped, country) : stripped;
+            event.target.value = formattedStripped;
+            if (typeof event.target.setSelectionRange === 'function') {
+              event.target.setSelectionRange(formattedStripped.length, formattedStripped.length);
+            }
+            pendingCaretDigitIndexRef.current = stripped.length;
+            setPhone(stripped);
+            return;
+          }
+        }
+      }
+
       // Cap input at the maximum possible length for the selected country
       // (libphonenumber metadata). Deletions are always allowed.
       //
       // An international value is exempt: it carries its own country code, so
       // the currently selected country's maximum is the wrong yardstick and
       // auto-detect is about to change the country anyway.
-      const isInternationalEntry = unformatted.startsWith('+') || unformatted.startsWith('00');
 
       if (
         !isInternationalEntry &&
@@ -461,7 +510,69 @@ export function usePhoneInput(
       pendingCaretDigitIndexRef.current = countDigitsBeforePosition(rawValue, caretPosition);
       setPhone(unformatted);
     },
-    [setPhone, phone, country]
+    [setPhone, phone, country, formatOnType]
+  );
+
+  // Skip over formatting punctuation on Backspace/Delete so the cursor does not
+  // get trapped deleting a character that live formatting puts right back.
+  const handleInputKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (!formatOnType || event.currentTarget.readOnly) {
+        return;
+      }
+      if (event.key !== 'Backspace' && event.key !== 'Delete') {
+        return;
+      }
+
+      const start = event.currentTarget.selectionStart;
+      const end = event.currentTarget.selectionEnd;
+      if (start === null || end === null || start !== end) {
+        return;
+      }
+
+      if (event.key === 'Backspace') {
+        if (start <= 0 || /\d/.test(formattedPhone[start - 1])) {
+          return;
+        }
+        if (start === 1 && formattedPhone[0] === '+') {
+          return;
+        }
+
+        let digitIndex = start - 1;
+        while (digitIndex >= 0 && !/\d/.test(formattedPhone[digitIndex])) {
+          digitIndex -= 1;
+        }
+        if (digitIndex < 0) {
+          return;
+        }
+
+        event.preventDefault();
+        const nextDisplay =
+          formattedPhone.slice(0, digitIndex) + formattedPhone.slice(digitIndex + 1);
+        pendingCaretDigitIndexRef.current = countDigitsBeforePosition(formattedPhone, digitIndex);
+        setPhone(unformatPhone(nextDisplay));
+        return;
+      }
+
+      if (start >= formattedPhone.length || /\d/.test(formattedPhone[start])) {
+        return;
+      }
+
+      let digitIndex = start;
+      while (digitIndex < formattedPhone.length && !/\d/.test(formattedPhone[digitIndex])) {
+        digitIndex += 1;
+      }
+      if (digitIndex >= formattedPhone.length) {
+        return;
+      }
+
+      event.preventDefault();
+      const nextDisplay =
+        formattedPhone.slice(0, digitIndex) + formattedPhone.slice(digitIndex + 1);
+      pendingCaretDigitIndexRef.current = countDigitsBeforePosition(formattedPhone, start);
+      setPhone(unformatPhone(nextDisplay));
+    },
+    [formatOnType, formattedPhone, setPhone]
   );
 
   // Handle focus
@@ -590,6 +701,7 @@ export function usePhoneInput(
       ref: inputRef,
       value: formattedPhone,
       onChange: handleInputChange,
+      onKeyDown: handleInputKeyDown,
       onFocus: handleFocus,
       onBlur: handleBlur,
       type: 'tel',
