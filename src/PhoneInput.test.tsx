@@ -121,10 +121,12 @@ describe('PhoneInput country combobox', () => {
   });
 
   it('points aria-activedescendant at the selected country when it opens', () => {
-    const search = openCombobox();
+    render(<PhoneInput defaultCountry="GB" searchable />);
+    fireEvent.click(getCountryButton());
+    const search = screen.getByRole('combobox');
     const active = document.getElementById(search.getAttribute('aria-activedescendant') ?? '');
 
-    expect(active?.textContent).toMatch(/United States/i);
+    expect(active?.textContent).toMatch(/United Kingdom/i);
     expect(active?.getAttribute('aria-selected')).toBe('true');
   });
 
@@ -176,10 +178,12 @@ describe('PhoneInput country combobox', () => {
     const search = screen.getByRole('combobox');
     fireEvent.change(search, { target: { value: 'United Kingdom' } });
     fireEvent.keyDown(search, { key: 'Enter' });
+    fireEvent.keyUp(window, { key: 'Enter' });
 
     expect(screen.queryByRole('listbox')).toBeNull();
     expect(onCountryChange).toHaveBeenCalled();
     expect(getCountryButton().getAttribute('aria-label')).toMatch(/United Kingdom/i);
+    expect(document.activeElement).toBe(getCountryButton());
   });
 
   it('announces the filtered count and the empty state', () => {
@@ -222,5 +226,93 @@ describe('PhoneInput country combobox', () => {
 
     fireEvent.keyDown(active!, { key: 'ArrowDown' });
     expect(document.activeElement?.getAttribute('role')).toBe('option');
+  });
+
+  it('does not submit a parent form when pressing Enter with zero search matches', () => {
+    const onSubmit = vi.fn((e: React.FormEvent) => e.preventDefault());
+    render(
+      <form onSubmit={onSubmit}>
+        <PhoneInput defaultCountry="US" searchable />
+      </form>
+    );
+
+    fireEvent.click(getCountryButton());
+    const search = screen.getByRole('combobox');
+    fireEvent.change(search, { target: { value: 'zzzzz' } });
+    fireEvent.keyDown(search, { key: 'Enter' });
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByRole('listbox')).toBeTruthy();
+  });
+
+  it('uses distinct listbox and option IDs across multiple PhoneInput instances', () => {
+    render(
+      <div>
+        <PhoneInput defaultCountry="US" searchable />
+        <PhoneInput defaultCountry="US" searchable />
+      </div>
+    );
+
+    const buttons = screen.getAllByRole('button', { name: /country/i });
+    fireEvent.click(buttons[0]);
+    const search0 = screen.getByRole('combobox');
+    const controls0 = search0.getAttribute('aria-controls');
+    const active0 = search0.getAttribute('aria-activedescendant');
+    expect(document.getElementById(active0 ?? '')?.textContent).toMatch(/United States/i);
+
+    fireEvent.click(buttons[1]);
+    const search1 = screen.getByRole('combobox');
+    const controls1 = search1.getAttribute('aria-controls');
+    const active1 = search1.getAttribute('aria-activedescendant');
+    expect(document.getElementById(active1 ?? '')?.textContent).toMatch(/United States/i);
+
+    expect(controls0).toBeTruthy();
+    expect(controls1).toBeTruthy();
+    expect(controls0).not.toBe(controls1);
+    expect(active0).toBeTruthy();
+    expect(active1).toBeTruthy();
+    expect(active0).not.toBe(active1);
+  });
+
+  it('mounts the status live region before opening when searchable, and omits it otherwise', () => {
+    const { rerender } = render(<PhoneInput defaultCountry="US" searchable />);
+
+    const status = screen.getByRole('status');
+    expect(status.textContent).toBe('');
+
+    fireEvent.click(getCountryButton());
+    expect(screen.getByRole('status').textContent).toMatch(/countries$/);
+
+    rerender(<PhoneInput defaultCountry="US" searchable={false} />);
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('focuses the selected option on open and supports typeahead when searchable is false', () => {
+    render(<PhoneInput defaultCountry="GB" searchable={false} />);
+    fireEvent.click(getCountryButton());
+
+    expect(document.activeElement?.getAttribute('role')).toBe('option');
+    expect(document.activeElement?.textContent).toMatch(/United Kingdom/i);
+
+    const active = document.activeElement!;
+    fireEvent.keyDown(active, { key: 'f' });
+    expect(document.activeElement?.getAttribute('role')).toBe('option');
+    expect(document.activeElement?.textContent).toMatch(/^[^A-Za-z]*F/);
+  });
+
+  it('supports custom renderFlag in the country button and dropdown options', () => {
+    render(
+      <PhoneInput
+        defaultCountry="US"
+        searchable
+        renderFlag={(c) => <span data-testid={`flag-${c.code}`}>{c.code}</span>}
+      />
+    );
+
+    expect(screen.getByTestId('flag-US').textContent).toBe('US');
+
+    fireEvent.click(getCountryButton());
+    expect(screen.getAllByTestId('flag-US').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByTestId('flag-GB').textContent).toBe('GB');
   });
 });

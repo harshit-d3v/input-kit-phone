@@ -12,6 +12,8 @@ Source, issues, and contributions: **[github.com/harshit-d3v/input-kit-phone](ht
 
 ## Latest update
 
+**0.7.0**: adds controlled `country` support, direct `e164` output on `usePhoneInput()`, localized validation error messages across all 11 bundled languages, custom `renderFlag` on `<PhoneInput>`, prefix-aware length capping for variable-length countries (such as 10-digit Indian mobile numbers alongside 13-digit `1800` numbers), and pasted international `(0)` trunk-zero cleanup. Also drops the runtime `libphonenumber-js/mobile/examples` import by pre-generating format masks, and fixes combobox keyboard wiring, multi-instance option IDs, `Enter` focus return in browsers, and React 18 `inputProps.ref` compatibility.
+
 **0.6.0**: the country selector is now a real ARIA combobox. The search field drives `aria-activedescendant` while keeping focus, the active option is the selected one, and a live region announces how many countries matched. Headless consumers get `countrySearchProps`, `activeCountry`, `moveHighlight` and `countryResultsText`.
 
 **0.5.0**: lighter install. Dropped the `world-countries` runtime dependency (~600 kB unpacked); the names and dial codes it provided are now generated into the package (about 26 kB). The country list is byte-identical, nothing else changes.
@@ -28,7 +30,7 @@ Source, issues, and contributions: **[github.com/harshit-d3v/input-kit-phone](ht
 
 ## Features
 
-- **245 supported calling regions** derived from `libphonenumber-js` metadata, with names and dial codes generated into the package so there is no heavy country-data dependency to install
+- **245 supported calling regions** derived from `libphonenumber-js` metadata, with names, dial codes, and example format masks pre-generated into the package so there is no runtime `world-countries` or `libphonenumber-js/mobile/examples` import
 - **Headless hook** via `usePhoneInput()` plus an optional **unstyled reference** `PhoneInput` component (class names only, no bundled CSS)
 - **Searchable country selector** with country name, ISO code, and dial-code matching
 - **Accessible country selector** built on the WAI-ARIA combobox pattern, with `aria-activedescendant` navigation and a live region announcing the filtered count
@@ -113,11 +115,11 @@ When the dropdown is searchable, the search field is the combobox: it carries `r
 
 Keys: ArrowDown and ArrowUp move the active option, Home and End jump to the ends, Enter selects it, Escape closes the list and returns focus to the trigger button. A polite live region reports how many countries the query matched, or that none did.
 
-With `searchable={false}` there is no combobox, so the options keep roving focus and the same keys apply to the list itself.
+With `searchable={false}` there is no combobox: opening focuses the active option, the options keep roving focus, the same navigation keys apply to the list itself, and typing a letter jumps to matching countries.
 
 The trigger button is named with the selected country and its dial code, not just the action, because a constant `aria-label` would otherwise hide the flag and dial code from the accessibility tree.
 
-Building your own UI on `usePhoneInput()` gets the same wiring: spread `countrySearchProps` on your search field, `dropdownProps` on the list, and `getCountryOptionProps(country, index)` on each option. `countryResultsText` is the localized live-region string. All the announcement strings go through the `labels` option.
+Building your own UI on `usePhoneInput()` gets the same wiring: spread `countrySearchProps` (including its combobox `onKeyDown` handler) on your search field, `dropdownProps` on the list, and `getCountryOptionProps(country, index)` on each option. `countryResultsText` is the localized live-region string. All the announcement and validation strings go through the `labels` option.
 
 ## Format as you type
 
@@ -143,8 +145,9 @@ const { inputProps, fullPhone } = usePhoneInput({
 | --- | --- |
 | `phone` | National digits stored by the hook (default) |
 | `fullPhone` | National number plus dial code when `includeDialCode` is `true` |
+| `e164` | Valid E.164 string directly from `usePhoneInput().e164`, or `parsePhoneValue(phone, country).e164` outside React |
 | `onChange(phone, country)` | Same contract as `phone` / `includeDialCode` |
-| E.164 for APIs | `parsePhoneValue(phone, country).e164` when valid. Prefer this over raw concatenation |
+| E.164 for APIs | `usePhoneInput().e164` or `parsePhoneValue(phone, country).e164` when valid. Prefer this over raw concatenation |
 
 ## Known behavior
 
@@ -222,6 +225,7 @@ Compatibility aliases: `stripNonDigits`, `detectCountry`, `formatPhoneNumber`, `
 
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
+| `country` | `string` | - | Controlled country ISO code (pair with `onCountryChange`) |
 | `defaultCountry` | `string` | `'US'` | Default selected country |
 | `preferredCountries` | `string[]` | - | Countries shown first in search results |
 | `excludeCountries` | `string[]` | - | Countries to exclude |
@@ -231,9 +235,14 @@ Compatibility aliases: `stripNonDigits`, `detectCountry`, `formatPhoneNumber`, `
 | `includeDialCode` | `boolean` | `false` | Return values with dial code included |
 | `required` | `boolean` | `false` | Empty value is invalid |
 | `validator` | `(phone, country) => boolean` | - | Custom validation override |
+| `onCountryChange` | `(country) => void` | - | Fires when the selected country changes |
 | `onValidationChange` | `(state) => void` | - | Fires when validation result changes |
+| `locale` | `string \| readonly string[]` | - | Locale used for country names and built-in labels |
+| `labels` | `Partial<PhoneInputLabels>` | - | Override UI, announcement, and validation strings |
 
-Important returned fields: `phone`, `fullPhone`, `country`, `isValid`, `validationReason`, `error`, `onValidationChange`, `filteredCountries`, `inputProps`, `countryButtonProps`, `dropdownProps`, `getCountryOptionId`.
+`<PhoneInput>` also accepts `renderFlag?: (country: Country) => ReactNode` for custom SVG or badge flags (helpful on Windows where emoji flags render as two-letter codes).
+
+Important returned fields: `phone`, `fullPhone`, `e164`, `country`, `isValid`, `validationReason`, `error`, `filteredCountries`, `activeCountry`, `highlightedIndex`, `setHighlightedIndex`, `countryResultsText`, `inputProps`, `countryButtonProps`, `countrySearchProps`, `dropdownProps`, `getCountryOptionId`, `getCountryOptionProps`.
 
 ## License
 

@@ -71,6 +71,7 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
       selectorClassName,
       containerClassName,
       searchable = true,
+      renderFlag,
       placeholder,
       disabled,
       readOnly,
@@ -85,6 +86,8 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
     const inputRef = useRef<HTMLInputElement | null>(null);
     const optionRefs = useRef<Array<HTMLLIElement | null>>([]);
     const countryButtonRef = useRef<HTMLButtonElement | null>(null);
+    const shouldReturnFocusRef = useRef(false);
+    const pendingKeyUpCleanupRef = useRef<(() => void) | null>(null);
 
     const {
       inputProps,
@@ -103,7 +106,7 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
       getCountryOptionId,
       highlightedIndex,
       setHighlightedIndex,
-      moveHighlight,
+      activeCountry,
       countryResultsText,
       labels,
     } = usePhoneInput({
@@ -139,10 +142,37 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
     // Closing the popup unmounts the element that currently holds focus, so
     // without this the browser resets focus to <body>: the next Tab restarts
     // from the top of the page instead of continuing to the phone field.
-    // WAI-ARIA APG returns focus to the trigger on both selection and Escape.
     const returnFocusToButton = useCallback(() => {
-      countryButtonRef.current?.focus();
+      shouldReturnFocusRef.current = true;
     }, []);
+
+    // Wait for keyup before focusing the trigger on Enter/Space so any trailing
+    // keypress/char event from the same key press cannot click the button and
+    // immediately re-open the dropdown.
+    const returnFocusAfterKeyUp = useCallback((key: string) => {
+      pendingKeyUpCleanupRef.current?.();
+      const handleKeyUp = (event: KeyboardEvent) => {
+        if (event.key !== key) return;
+        window.removeEventListener('keyup', handleKeyUp);
+        pendingKeyUpCleanupRef.current = null;
+        countryButtonRef.current?.focus();
+      };
+      window.addEventListener('keyup', handleKeyUp);
+      pendingKeyUpCleanupRef.current = () => {
+        window.removeEventListener('keyup', handleKeyUp);
+      };
+    }, []);
+
+    useEffect(() => () => {
+      pendingKeyUpCleanupRef.current?.();
+    }, []);
+
+    useEffect(() => {
+      if (!isOpen && shouldReturnFocusRef.current) {
+        shouldReturnFocusRef.current = false;
+        countryButtonRef.current?.focus();
+      }
+    }, [isOpen]);
 
     // Handle country option click
     const handleCountryClick = useCallback((c: Country) => {
@@ -157,7 +187,7 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
         case ' ':
           e.preventDefault();
           selectCountry(c);
-          returnFocusToButton();
+          returnFocusAfterKeyUp(e.key);
           break;
         case 'ArrowDown':
           e.preventDefault();
@@ -192,8 +222,23 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
           closeDropdown();
           returnFocusToButton();
           break;
+        default:
+          if (!searchable && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            const needle = e.key.toLowerCase();
+            const total = filteredCountries.length;
+            for (let offset = 1; offset <= total; offset += 1) {
+              const candidateIndex = (index + offset) % total;
+              if (getCountryDisplayName(filteredCountries[candidateIndex]).toLowerCase().startsWith(needle)) {
+                e.preventDefault();
+                setHighlightedIndex(candidateIndex);
+                optionRefs.current[candidateIndex]?.focus();
+                break;
+              }
+            }
+          }
+          break;
       }
-    }, [selectCountry, filteredCountries.length, closeDropdown, returnFocusToButton, setHighlightedIndex]);
+    }, [selectCountry, filteredCountries, closeDropdown, returnFocusToButton, returnFocusAfterKeyUp, setHighlightedIndex, searchable]);
 
     useEffect(() => {
       if (!isOpen) {
@@ -223,6 +268,16 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
       };
     }, [isOpen, closeDropdown]);
 
+    // Without a search field there is no autoFocus input, so move DOM focus to
+    // the active option on open so arrow keys and typeahead work immediately.
+    const wasOpenRef = useRef(false);
+    useEffect(() => {
+      if (isOpen && !wasOpenRef.current && !searchable) {
+        optionRefs.current[highlightedIndex]?.focus();
+      }
+      wasOpenRef.current = isOpen;
+    }, [isOpen, searchable, highlightedIndex]);
+
     // Focus no longer follows the active option in the combobox, so the list
     // has to be scrolled manually or the highlight walks off screen.
     useEffect(() => {
@@ -247,42 +302,17 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
       close: closeDropdown,
     }));
 
-    // Combobox keys. Focus stays in the search field; these only move the
-    // active option that `aria-activedescendant` points at.
+    // Combobox keys. Focus stays in the search field; the hook moves
+    // `aria-activedescendant`, and the component returns focus to the trigger.
+    const onSearchKeyDown = countrySearchProps.onKeyDown;
     const handleSearchKeyDown = useCallback((e: React.KeyboardEvent) => {
-      switch (e.key) {
-        case 'ArrowDown':
-          e.preventDefault();
-          moveHighlight(highlightedIndex + 1);
-          break;
-        case 'ArrowUp':
-          e.preventDefault();
-          moveHighlight(highlightedIndex - 1);
-          break;
-        case 'Home':
-          e.preventDefault();
-          moveHighlight(0);
-          break;
-        case 'End':
-          e.preventDefault();
-          moveHighlight(filteredCountries.length - 1);
-          break;
-        case 'Enter': {
-          const active = filteredCountries[highlightedIndex];
-          if (active) {
-            e.preventDefault();
-            selectCountry(active);
-            returnFocusToButton();
-          }
-          break;
-        }
-        case 'Escape':
-          e.preventDefault();
-          closeDropdown();
-          returnFocusToButton();
-          break;
+      onSearchKeyDown(e);
+      if (e.key === 'Escape') {
+        returnFocusToButton();
+      } else if (e.key === 'Enter' && activeCountry) {
+        returnFocusAfterKeyUp(e.key);
       }
-    }, [closeDropdown, returnFocusToButton, moveHighlight, highlightedIndex, filteredCountries, selectCountry]);
+    }, [onSearchKeyDown, activeCountry, returnFocusToButton, returnFocusAfterKeyUp]);
 
     // Render default UI
     return (
@@ -298,7 +328,7 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
         >
           {country ? (
             <>
-              <span className="phone-input-flag">{country.flag}</span>
+              <span className="phone-input-flag">{renderFlag ? renderFlag(country) : country.flag}</span>
               <span className="phone-input-dial-code">{country.dialCode}</span>
             </>
           ) : (
@@ -323,6 +353,18 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
           aria-labelledby={ariaLabelledBy}
         />
 
+        {/* Filtered result count, kept mounted when searchable so screen readers
+            already track the live region before the dropdown opens. */}
+        {searchable && (
+          <div
+            role="status"
+            aria-live="polite"
+            style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}
+          >
+            {isOpen ? countryResultsText : ''}
+          </div>
+        )}
+
         {/* Country Dropdown */}
         {isOpen && (
           <div className="phone-input-dropdown">
@@ -337,16 +379,6 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
                 />
               </div>
             )}
-
-            {/* Filtered result count, announced politely so a screen reader
-                user knows how many matches their query left. */}
-            <div
-              role="status"
-              aria-live="polite"
-              style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}
-            >
-              {countryResultsText}
-            </div>
 
             {/* Country List. With a search field the combobox owns focus and
                 drives aria-activedescendant; without one the options keep
@@ -372,7 +404,7 @@ export const PhoneInput = forwardRef<PhoneInputRef, PhoneInputProps>(
                   onMouseEnter={() => setHighlightedIndex(index)}
                   tabIndex={searchable ? -1 : index === highlightedIndex ? 0 : -1}
                 >
-                  <span className="phone-input-flag">{c.flag}</span>
+                  <span className="phone-input-flag">{renderFlag ? renderFlag(c) : c.flag}</span>
                   <span className="phone-input-country-name">{getCountryDisplayName(c)}</span>
                   <span className="phone-input-dial-code">{c.dialCode}</span>
                 </li>

@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes, RefObject } from 'react';
+import type { InputHTMLAttributes, ReactNode, Ref } from 'react';
 import type { Country } from './countries';
 import type { ValidationReason, ValidationResult } from './utils';
 
@@ -13,9 +13,15 @@ export interface PhoneInputLabels {
   countryButtonAriaLabel: string;
   /** Announced when the country list is filtered. `{count}` is replaced with the number of matches. */
   countryResultsAnnouncement: string;
+  validationRequired: string;
+  validationTooShort: string;
+  validationTooLong: string;
+  validationInvalid: string;
 }
 
 export interface PhoneInputOptions {
+  /** Controlled country ISO code (e.g., 'US', 'GB'). Pair with `onCountryChange` or `onChange`. */
+  country?: string;
   /** Default country code (e.g., 'US', 'GB') */
   defaultCountry?: string;
   /** Preferred countries to show at top of list */
@@ -99,11 +105,13 @@ export interface UsePhoneInputReturn extends PhoneInputState, PhoneInputActions 
   value: string;
   /** Formatted phone value displayed in the input */
   formattedValue: string;
+  /** Valid E.164 phone number (e.g. "+14155552671"), or undefined when empty or invalid */
+  e164: string | undefined;
   /** Validation error message for compatibility consumers */
   error: string | null;
   /** Props for the phone input element */
   inputProps: InputHTMLAttributes<HTMLInputElement> & {
-    ref: RefObject<HTMLInputElement | null>;
+    ref: Ref<HTMLInputElement>;
   };
   /** Index of the active option in `filteredCountries` */
   highlightedIndex: number;
@@ -128,6 +136,7 @@ export interface UsePhoneInputReturn extends PhoneInputState, PhoneInputActions 
     role: 'combobox';
     value: string;
     onChange: (event: { target: { value: string } }) => void;
+    onKeyDown: (event: { key: string; preventDefault: () => void }) => void;
     'aria-expanded': boolean;
     'aria-controls': string;
     'aria-autocomplete': 'list';
@@ -178,12 +187,14 @@ export interface PhoneInputProps extends PhoneInputOptions {
   defaultValue?: string;
   /** Change handler: national digits by default; includes dial code when `includeDialCode` is true */
   onChange?: (phone: string, country: Country | undefined) => void;
-  /** @deprecated Country change handler retained for compatibility */
+  /** Called when the selected country changes; pair with controlled `country` */
   onCountryChange?: (country: Country | undefined) => void;
   /** Blur handler */
   onBlur?: () => void;
   /** Focus handler */
   onFocus?: () => void;
+  /** Custom renderer for country flags in the selector button and dropdown options */
+  renderFlag?: (country: Country) => ReactNode;
   /** Custom class name for container */
   containerClassName?: string;
   /** Custom class name for input */

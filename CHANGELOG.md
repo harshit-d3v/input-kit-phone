@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-24
+
+### Added
+
+- Controlled `country` option on `usePhoneInput` and `PhoneInput` (paired with `onCountryChange`, which is no longer marked deprecated).
+- Direct `e164` return field on `usePhoneInput()`, returning the valid E.164 string or `undefined` when empty or invalid.
+- Localized validation messages (`validationRequired`, `validationTooShort`, `validationTooLong`, `validationInvalid`) in `PhoneInputLabels` across all 11 bundled languages in `labels.ts`, customizable via `labels`.
+- `renderFlag` prop on `PhoneInput` for custom flag rendering (such as SVG or ISO badges on platforms without flag emoji support).
+- Single-letter typeahead and initial active-option focus when opening `PhoneInput` with `searchable={false}`.
+
+### Changed
+
+- Pre-generated country example format masks into `src/country-data.ts` via `scripts/generate-country-data.mjs`, removing the runtime `libphonenumber-js/mobile/examples` import and 245 startup `getExampleNumber()` calls.
+- Upgraded `examples/react-styled` to showcase `countrySearchProps`, `dropdownProps`, `getCountryOptionProps`, `countryResultsText`, controlled `country`, `e164`, localized validation errors, and `<PhoneInput>` with `renderFlag`.
+
+### Fixed
+
+- Headless `countrySearchProps` now includes `onKeyDown` (handling ArrowDown, ArrowUp, Home, End, Enter, Escape), and `getCountryOptionProps` sets `tabIndex` from the active `highlightedIndex`.
+- `activeOptionId` / `aria-activedescendant` is now `undefined` while the dropdown is closed, and `getCountryOptionId` scopes option IDs to `listboxId` so multiple phone inputs on one page do not collide.
+- Pressing `Enter` in the country search field with zero matches now calls `preventDefault()` so it never submits a parent `<form>`.
+- Deferred `Enter`/`Space` trigger focus return until `keyup` so the trigger button does not immediately re-open the dropdown on selection in Chromium.
+- Removed the three post-paint `highlightedIndex` `useEffect`s (clamping on render and syncing in actions), preventing first-frame active-option flashes and double renders; unified `setHighlightedIndex` and `moveHighlight` with clamping.
+- Kept the `<div role="status">` live region mounted before opening when `searchable` is true and omitted it when `searchable={false}`.
+- Stripped optional trunk zeros from pasted international numbers such as `+44 (0) 7400 123456` while preserving countries that keep leading zeros (Italy).
+- Made `isPhoneTooLong()` and `limitInputLength()` prefix-aware using `libphonenumber-js` format metadata, so fixed-length prefixes inside variable-length countries (such as 10-digit Indian mobile numbers alongside 13-digit `1800` numbers, or UK/FR numbers without a leading `0`) cap cleanly instead of accepting extra unformatted digits.
+- Widened `inputProps.ref` from `RefObject<HTMLInputElement | null>` to `Ref<HTMLInputElement>` so `<input {...inputProps} />` typechecks cleanly under both React 18 and React 19.
+
 ## [0.6.0] - 2026-09-19
 
 ### Added
@@ -118,7 +145,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `docs/integrations.md` for React Hook Form, Formik, Zod, and controlled inputs
 - Refreshed `FUTURE.md` for the next development phase
 
-[Unreleased]: https://github.com/harshit-d3v/input-kit-phone/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/harshit-d3v/input-kit-phone/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/harshit-d3v/input-kit-phone/releases/tag/v0.7.0
+[0.6.0]: https://github.com/harshit-d3v/input-kit-phone/releases/tag/v0.6.0
+[0.5.0]: https://github.com/harshit-d3v/input-kit-phone/releases/tag/v0.5.0
+[0.4.2]: https://github.com/harshit-d3v/input-kit-phone/releases/tag/v0.4.2
+[0.4.0]: https://github.com/harshit-d3v/input-kit-phone/releases/tag/v0.4.0
 [0.3.0]: https://github.com/harshit-d3v/input-kit-phone/releases/tag/v0.3.0
 [0.2.2]: https://github.com/harshit-d3v/input-kit-phone/releases/tag/v0.2.2
 [0.2.1]: https://github.com/harshit-d3v/input-kit-phone/releases/tag/v0.2.1

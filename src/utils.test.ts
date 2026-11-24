@@ -169,6 +169,19 @@ describe('parseToE164', () => {
   it('accepts a number typed with its dial code but no plus', () => {
     expect(parseToE164('919876543210', getCountryByCode('IN'))).toBe('+919876543210');
   });
+
+  it.each([
+    ['GB', '+44 (0) 7400 123456', '+447400123456'],
+    ['DE', '+49 (0) 30 123456', '+4930123456'],
+    ['FR', '+33 (0) 6 12 34 56 78', '+33612345678'],
+    ['IN', '+91 (0) 98765 43210', '+919876543210'],
+  ])('strips pasted %s international trunk zero: %s -> %s', (code, pasted, expected) => {
+    expect(parseToE164(pasted, getCountryByCode(code))).toBe(expected);
+  });
+
+  it('preserves leading zero for pasted Italian international numbers', () => {
+    expect(parseToE164('+39 02 1234 5678', getCountryByCode('IT'))).toBe('+390212345678');
+  });
 });
 
 describe('getNationalNumber', () => {
@@ -338,6 +351,26 @@ describe('isPhoneTooLong', () => {
   it('should allow longer valid numbers in variable-length countries', () => {
     const de = getCountryByCode('DE');
     expect(isPhoneTooLong('015123456789', de)).toBe(false);
+    expect(isPhoneTooLong('0301234567890', de)).toBe(false);
+  });
+
+  it('should enforce prefix-specific format limits in variable-length countries', () => {
+    const ind = getCountryByCode('IN');
+    expect(isPhoneTooLong('8123456789', ind)).toBe(false);
+    expect(isPhoneTooLong('81234567899', ind)).toBe(true);
+    expect(isPhoneTooLong('8123456789999', ind)).toBe(true);
+    expect(isPhoneTooLong('08123456789', ind)).toBe(false);
+    expect(isPhoneTooLong('081234567899', ind)).toBe(true);
+    expect(isPhoneTooLong('1800123456789', ind)).toBe(false);
+    expect(isPhoneTooLong('18001234567890', ind)).toBe(true);
+
+    const gb = getCountryByCode('GB');
+    expect(isPhoneTooLong('7400123456', gb)).toBe(false);
+    expect(isPhoneTooLong('74001234569', gb)).toBe(true);
+
+    const fr = getCountryByCode('FR');
+    expect(isPhoneTooLong('612345678', fr)).toBe(false);
+    expect(isPhoneTooLong('6123456789', fr)).toBe(true);
   });
 
   it('should fall back to the E.164 cap without a country', () => {
@@ -355,6 +388,20 @@ describe('limitInputLength', () => {
     const us = getCountryByCode('US');
     const result = limitInputLength('415555267123456', us);
     expect(result).toBe('4155552671');
+  });
+
+  it('should limit input length using prefix-specific metadata rules', () => {
+    const ind = getCountryByCode('IN');
+    expect(limitInputLength('8123456789999', ind)).toBe('8123456789');
+    expect(limitInputLength('08123456789999', ind)).toBe('08123456789');
+    expect(limitInputLength('18001234567890', ind)).toBe('1800123456789');
+
+    const gb = getCountryByCode('GB');
+    expect(limitInputLength('74001234569', gb)).toBe('7400123456');
+    expect(limitInputLength('074001234569', gb)).toBe('07400123456');
+
+    const fr = getCountryByCode('FR');
+    expect(limitInputLength('6123456789', fr)).toBe('612345678');
   });
 
   it('should handle international format', () => {

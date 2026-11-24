@@ -92,4 +92,9 @@ describe('countries', () => {
       })
     );
   });
+
+  it('includes pre-generated format masks for countries', () => {
+    expect(getCountryByCode('US')?.format).toBe('(###) ###-####');
+    expect(getCountryByCode('GB')?.format).toBeTruthy();
+  });
 });

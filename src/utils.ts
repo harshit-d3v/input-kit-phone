@@ -2,6 +2,7 @@ import type { Country } from './countries';
 import { countries, detectCountryFromPhone, getCountryByCode } from './countries';
 import {
   AsYouType,
+  Metadata,
   isPossiblePhoneNumber,
   isValidPhoneNumber,
   parsePhoneNumberFromString,
@@ -47,8 +48,106 @@ function getCountryCode(country: MaybeCountry): CountryCode | undefined {
   return country?.code as CountryCode | undefined;
 }
 
-function getMaxNationalDigits(country: MaybeCountry): number | undefined {
-  return country?.format?.replace(/[^#]/g, '').length;
+interface FormatLengthRule {
+  leading?: RegExp;
+  maxDigits: number;
+}
+
+interface MetadataFormatRule {
+  pattern: () => string;
+  leadingDigitsPatterns: () => string[];
+}
+
+interface MetadataNumberingPlanWithFormats {
+  formats?: () => MetadataFormatRule[];
+}
+
+const formatRulesCache = new Map<CountryCode, FormatLengthRule[] | null>();
+
+function getPatternMaxDigits(pattern: string): number | undefined {
+  if (/[|*+?]/.test(pattern)) {
+    return undefined;
+  }
+
+  let total = 0;
+  let index = 0;
+  while (index < pattern.length) {
+    if (pattern[index] === '(' || pattern[index] === ')') {
+      index += 1;
+      continue;
+    }
+    if (pattern[index] === '\\' && pattern[index + 1] === 'd') {
+      index += 2;
+      if (pattern[index] === '{') {
+        const end = pattern.indexOf('}', index);
+        if (end === -1) return undefined;
+        const parts = pattern.slice(index + 1, end).split(',');
+        const max = Number(parts[parts.length - 1]);
+        if (!Number.isFinite(max)) return undefined;
+        total += max;
+        index = end + 1;
+      } else {
+        total += 1;
+      }
+      continue;
+    }
+    return undefined;
+  }
+
+  return total;
+}
+
+function getFormatRules(countryCode: CountryCode): FormatLengthRule[] | null {
+  if (formatRulesCache.has(countryCode)) {
+    return formatRulesCache.get(countryCode) ?? null;
+  }
+
+  const metadata = new Metadata();
+  metadata.selectNumberingPlan(countryCode);
+  const numberingPlan = metadata.numberingPlan as MetadataNumberingPlanWithFormats | undefined;
+  const formats = numberingPlan?.formats?.() ?? [];
+  if (formats.length === 0) {
+    formatRulesCache.set(countryCode, null);
+    return null;
+  }
+
+  const rules: FormatLengthRule[] = [];
+  for (const format of formats) {
+    const maxDigits = getPatternMaxDigits(format.pattern());
+    if (maxDigits === undefined) {
+      formatRulesCache.set(countryCode, null);
+      return null;
+    }
+    const leadingPatterns = format.leadingDigitsPatterns();
+    const lastLeading = leadingPatterns.length ? leadingPatterns[leadingPatterns.length - 1] : undefined;
+    rules.push({
+      leading: lastLeading ? new RegExp(`^(?:${lastLeading})`) : undefined,
+      maxDigits,
+    });
+  }
+
+  formatRulesCache.set(countryCode, rules);
+  return rules;
+}
+
+function getFormatMaxNationalDigits(nationalNumber: string, countryCode: CountryCode): number | undefined {
+  const rules = getFormatRules(countryCode);
+  if (!rules) {
+    return undefined;
+  }
+
+  let maxMatched = 0;
+  let matchedAny = false;
+  for (const rule of rules) {
+    if (!rule.leading || rule.leading.test(nationalNumber)) {
+      matchedAny = true;
+      if (rule.maxDigits > maxMatched) {
+        maxMatched = rule.maxDigits;
+      }
+    }
+  }
+
+  return matchedAny ? maxMatched : undefined;
 }
 
 type LengthValidationStatus = ReturnType<typeof validateLength>;
@@ -74,8 +173,8 @@ function getLengthValidationStatus(phone: string, country: MaybeCountry): Length
 
 /**
  * Whether the number already exceeds the maximum possible length for the
- * country (per libphonenumber metadata), with an E.164 digit-count fallback
- * when metadata cannot resolve the number.
+ * country (per libphonenumber metadata), with prefix-specific format caps and
+ * an E.164 digit-count fallback.
  */
 export function isPhoneTooLong(phone: string, country?: MaybeCountry): boolean {
   const normalized = normalizePhoneInput(phone);
@@ -87,6 +186,27 @@ export function isPhoneTooLong(phone: string, country?: MaybeCountry): boolean {
 
   if (getLengthValidationStatus(phone, country) === 'TOO_LONG') {
     return true;
+  }
+
+  const countryCode = getCountryCode(country);
+  const parsed = normalized.startsWith('+')
+    ? parsePhoneNumberFromString(normalized)
+    : countryCode
+      ? parsePhoneNumberFromString(digits, countryCode)
+      : undefined;
+
+  if (parsed) {
+    if (parsed.isValid()) {
+      return false;
+    }
+
+    const resolvedCode = parsed.country ?? countryCode;
+    if (resolvedCode) {
+      const maxNationalDigits = getFormatMaxNationalDigits(parsed.nationalNumber, resolvedCode);
+      if (maxNationalDigits !== undefined && parsed.nationalNumber.length > maxNationalDigits) {
+        return true;
+      }
+    }
   }
 
   // E.164 caps national significant numbers at 15 digits (+ up to 3 for the country code).
@@ -174,7 +294,10 @@ export function addDialCode(phone: string, country: MaybeCountry): string {
   const normalized = normalizePhoneInput(phone);
   if (!normalized) return '';
   if (normalized === '+') return '';
-  if (normalized.startsWith('+')) return normalized;
+  if (normalized.startsWith('+')) {
+    const parsed = parsePhoneNumberFromString(normalized);
+    return parsed ? parsed.number : normalized;
+  }
 
   // Concatenating the dial code onto whatever was typed produced a wrong number
   // for every trunk-prefix country, and the old "does it already start with our
@@ -430,16 +553,16 @@ export function getCountryDisplayLabel(country: Country, includeDialCode = true)
 }
 
 export function limitInputLength(phone: string, country?: MaybeCountry): string {
-  const maxDigits = getMaxNationalDigits(country);
-  if (!maxDigits) {
+  if (!country) {
     return phone;
   }
 
   const isInternational = isInternationalFormat(phone);
-  const digits = cleanPhone(phone);
-  const dialDigits = country ? cleanPhone(country.dialCode) : '';
-  const maxLength = isInternational ? dialDigits.length + maxDigits : maxDigits;
-  const limited = digits.slice(0, maxLength);
+  let limited = cleanPhone(phone);
+
+  while (limited.length > 0 && isPhoneTooLong(isInternational ? `+${limited}` : limited, country)) {
+    limited = limited.slice(0, -1);
+  }
 
   return isInternational ? `+${limited}` : limited;
 }

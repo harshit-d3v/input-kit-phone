@@ -1,5 +1,4 @@
-import { getCountries, getCountryCallingCode, getExampleNumber, parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js';
-import examples from 'libphonenumber-js/mobile/examples';
+import { getCountries, getCountryCallingCode, parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js';
 import { COUNTRY_DATA } from './country-data';
 
 export interface Country {
@@ -25,11 +24,6 @@ function codeToFlag(code: string): string {
     .replace(/./g, (char) => String.fromCodePoint(127397 + char.charCodeAt(0)));
 }
 
-function getCountryFormat(code: CountryCode) {
-  const example = getExampleNumber(code, examples);
-  return example ? example.formatNational().replace(/\d/g, '#') : undefined;
-}
-
 function getCountryPriority(code: string) {
   const index = PRIORITY_COUNTRIES.indexOf(code);
   return index === -1 ? Number.MAX_SAFE_INTEGER : index;
@@ -47,7 +41,7 @@ const generatedCountries = Array.from(supportedCountries)
       dialCode,
       dialCodes,
       flag: codeToFlag(code),
-      format: getCountryFormat(code as CountryCode),
+      format: data?.format,
     } satisfies Country;
   })
   .sort((left, right) => {

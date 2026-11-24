@@ -249,6 +249,11 @@ describe('usePhoneInput', () => {
   it('should move the active option and report it as activedescendant', () => {
     const { result } = renderHook(() => usePhoneInput({ defaultCountry: 'US' }));
 
+    expect(result.current.activeOptionId).toBeUndefined();
+    expect(result.current.countrySearchProps['aria-activedescendant']).toBeUndefined();
+
+    act(() => result.current.openDropdown());
+
     const first = result.current.activeCountry;
     act(() => result.current.moveHighlight(1));
 
@@ -257,8 +262,120 @@ describe('usePhoneInput', () => {
     expect(result.current.activeOptionId).toBe(
       result.current.getCountryOptionId(result.current.activeCountry!.code)
     );
+    expect(result.current.countrySearchProps['aria-activedescendant']).toBe(
+      result.current.activeOptionId
+    );
+    const activeOptionProps = result.current.getCountryOptionProps(result.current.activeCountry!, 1);
     // aria-selected follows the active option, not the committed country.
-    expect(result.current.getCountryOptionProps(result.current.activeCountry!, 1)['aria-selected']).toBe(true);
+    expect(activeOptionProps['aria-selected']).toBe(true);
+    expect(activeOptionProps.tabIndex).toBe(0);
+  });
+
+  it('should handle combobox keyboard navigation via countrySearchProps.onKeyDown', () => {
+    const { result } = renderHook(() => usePhoneInput({ defaultCountry: 'US' }));
+
+    act(() => result.current.openDropdown());
+    const lastIndex = result.current.filteredCountries.length - 1;
+
+    const arrowDownPreventDefault = vi.fn();
+    act(() =>
+      result.current.countrySearchProps.onKeyDown({
+        key: 'ArrowDown',
+        preventDefault: arrowDownPreventDefault,
+      })
+    );
+    expect(arrowDownPreventDefault).toHaveBeenCalled();
+    expect(result.current.highlightedIndex).toBe(1);
+
+    const arrowUpPreventDefault = vi.fn();
+    act(() =>
+      result.current.countrySearchProps.onKeyDown({
+        key: 'ArrowUp',
+        preventDefault: arrowUpPreventDefault,
+      })
+    );
+    expect(arrowUpPreventDefault).toHaveBeenCalled();
+    expect(result.current.highlightedIndex).toBe(0);
+
+    const endPreventDefault = vi.fn();
+    act(() =>
+      result.current.countrySearchProps.onKeyDown({
+        key: 'End',
+        preventDefault: endPreventDefault,
+      })
+    );
+    expect(endPreventDefault).toHaveBeenCalled();
+    expect(result.current.highlightedIndex).toBe(lastIndex);
+
+    const homePreventDefault = vi.fn();
+    act(() =>
+      result.current.countrySearchProps.onKeyDown({
+        key: 'Home',
+        preventDefault: homePreventDefault,
+      })
+    );
+    expect(homePreventDefault).toHaveBeenCalled();
+    expect(result.current.highlightedIndex).toBe(0);
+
+    act(() => result.current.setSearchQuery('zzzzz'));
+    const emptyEnterPreventDefault = vi.fn();
+    act(() =>
+      result.current.countrySearchProps.onKeyDown({
+        key: 'Enter',
+        preventDefault: emptyEnterPreventDefault,
+      })
+    );
+    expect(emptyEnterPreventDefault).toHaveBeenCalled();
+    expect(result.current.isOpen).toBe(true);
+    expect(result.current.country?.code).toBe('US');
+
+    act(() => result.current.setSearchQuery('United Kingdom'));
+    const enterPreventDefault = vi.fn();
+    act(() =>
+      result.current.countrySearchProps.onKeyDown({
+        key: 'Enter',
+        preventDefault: enterPreventDefault,
+      })
+    );
+    expect(enterPreventDefault).toHaveBeenCalled();
+    expect(result.current.isOpen).toBe(false);
+    expect(result.current.country?.code).toBe('GB');
+
+    act(() => result.current.openDropdown());
+    const escapePreventDefault = vi.fn();
+    act(() =>
+      result.current.countrySearchProps.onKeyDown({
+        key: 'Escape',
+        preventDefault: escapePreventDefault,
+      })
+    );
+    expect(escapePreventDefault).toHaveBeenCalled();
+    expect(result.current.isOpen).toBe(false);
+  });
+
+  it('should clamp setHighlightedIndex, preserve highlight when already open, and isolate option IDs per instance', () => {
+    const first = renderHook(() => usePhoneInput({ defaultCountry: 'GB' }));
+    const second = renderHook(() => usePhoneInput({ defaultCountry: 'US' }));
+
+    expect(first.result.current.getCountryOptionId('US')).not.toBe(
+      second.result.current.getCountryOptionId('US')
+    );
+
+    act(() => first.result.current.setHighlightedIndex(99999));
+    expect(first.result.current.highlightedIndex).toBe(
+      first.result.current.filteredCountries.length - 1
+    );
+
+    act(() => first.result.current.setHighlightedIndex(-5));
+    expect(first.result.current.highlightedIndex).toBe(0);
+
+    act(() => first.result.current.openDropdown());
+    expect(first.result.current.activeCountry?.code).toBe('GB');
+    expect(first.result.current.highlightedIndex).toBeGreaterThan(0);
+
+    act(() => first.result.current.setHighlightedIndex(0));
+    act(() => first.result.current.openDropdown());
+    expect(first.result.current.highlightedIndex).toBe(0);
   });
 
   it('should clamp the active option to the filtered list', () => {
@@ -508,6 +625,134 @@ describe('usePhoneInput', () => {
       expect(result.current.inputProps.value).toBe('(555) 123-4567');
       expect(result.current.fullPhone).toBe('+15551234567');
       expect(seen.at(-1)).toBe('+15551234567');
+    });
+  });
+
+  describe('e164 and pasted international trunk zeros', () => {
+    it('exposes e164 only when the number is non-empty and valid', () => {
+      const { result } = renderHook(() => usePhoneInput({ defaultCountry: 'US' }));
+      expect(result.current.e164).toBeUndefined();
+
+      act(() => result.current.setPhone('555'));
+      expect(result.current.e164).toBeUndefined();
+
+      act(() => result.current.setPhone('4155552671'));
+      expect(result.current.e164).toBe('+14155552671');
+    });
+
+    it('resolves national trunk zero into clean e164 for UK numbers', () => {
+      const { result } = renderHook(() =>
+        usePhoneInput({ defaultCountry: 'GB', defaultValue: '07400123456' })
+      );
+      expect(result.current.isValid).toBe(true);
+      expect(result.current.e164).toBe('+447400123456');
+    });
+
+    it('strips pasted international trunk zeros like +44 (0) 7400 123456', () => {
+      const { result } = renderHook(() => usePhoneInput({ defaultCountry: 'US' }));
+
+      act(() => {
+        result.current.inputProps.onChange?.({
+          target: {
+            value: '+44 (0) 7400 123456',
+            selectionStart: 19,
+            setSelectionRange: vi.fn(),
+          },
+        } as unknown as React.ChangeEvent<HTMLInputElement>);
+      });
+
+      expect(result.current.country?.code).toBe('GB');
+      expect(result.current.phone).toBe('+447400123456');
+      expect(result.current.e164).toBe('+447400123456');
+    });
+  });
+
+  describe('controlled country', () => {
+    it('respects controlled country prop and updates via onCountryChange', () => {
+      const onCountryChange = vi.fn();
+      const { result, rerender } = renderHook(
+        ({ country }) =>
+          usePhoneInput({
+            country,
+            onCountryChange: (next) => onCountryChange(next),
+          }),
+        { initialProps: { country: 'US' } }
+      );
+
+      expect(result.current.country?.code).toBe('US');
+
+      act(() => {
+        result.current.selectCountry(getCountryByCode('DE')!);
+      });
+
+      expect(onCountryChange).toHaveBeenCalledWith(expect.objectContaining({ code: 'DE' }));
+      expect(result.current.country?.code).toBe('US');
+
+      rerender({ country: 'DE' });
+      expect(result.current.country?.code).toBe('DE');
+    });
+
+    it('does not loop when onCountryChange is an inline function in controlled mode', () => {
+      const spy = vi.fn();
+      const { rerender } = renderHook(
+        ({ country, value }) =>
+          usePhoneInput({
+            country,
+            value,
+            onCountryChange: (next) => spy(next?.code),
+          }),
+        { initialProps: { country: 'US', value: '+447400123456' } }
+      );
+
+      const callsAfterMount = spy.mock.calls.length;
+      rerender({ country: 'US', value: '+447400123456' });
+      rerender({ country: 'US', value: '+447400123456' });
+      expect(spy.mock.calls.length).toBe(callsAfterMount);
+    });
+  });
+
+  describe('localized validation messages', () => {
+    it('returns localized validation errors for bundled locales', () => {
+      const fr = renderHook(() => usePhoneInput({ locale: 'fr', required: true }));
+      expect(fr.result.current.isValid).toBe(false);
+      expect(fr.result.current.error).toBe('Le numéro de téléphone est requis');
+
+      const de = renderHook(() =>
+        usePhoneInput({ locale: 'de', defaultCountry: 'DE', defaultValue: '123' })
+      );
+      expect(de.result.current.isValid).toBe(false);
+      expect(de.result.current.error).toBe('Telefonnummer ist zu kurz');
+    });
+
+    it('allows overriding validation messages through labels', () => {
+      const { result } = renderHook(() =>
+        usePhoneInput({
+          required: true,
+          labels: { validationRequired: 'Custom required message' },
+        })
+      );
+      expect(result.current.error).toBe('Custom required message');
+    });
+  });
+
+  describe('prefix-aware input capping', () => {
+    it('caps an India mobile number at 10 digits and keeps it formatted', () => {
+      const { result } = renderHook(() => usePhoneInput({ defaultCountry: 'IN' }));
+
+      act(() => {
+        result.current.inputProps.onChange?.({
+          target: {
+            value: '8123456789999',
+            selectionStart: 13,
+            setSelectionRange: vi.fn(),
+          },
+        } as unknown as React.ChangeEvent<HTMLInputElement>);
+      });
+
+      expect(result.current.phone).toBe('8123456789');
+      expect(result.current.formattedValue).toBe('81234 56789');
+      expect(result.current.e164).toBe('+918123456789');
+      expect(result.current.isValid).toBe(true);
     });
   });
 });

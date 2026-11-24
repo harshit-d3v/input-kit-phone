@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import type { PhoneInputOptions, UsePhoneInputReturn } from './types';
 import type { Country } from './countries';
 import { countries, detectCountryFromPhone, getCountryByCode, localizeCountries, localizeCountry } from './countries';
@@ -13,6 +14,7 @@ import {
   getPlaceholder,
   isPhoneTooLong,
   limitInputLength,
+  parsePhoneValue,
   validatePhoneNumber,
 } from './utils';
 
@@ -61,6 +63,7 @@ export function usePhoneInput(
     onCountryChange,
     onBlur,
     onFocus,
+    country: controlledCountry,
     defaultCountry = 'US',
     preferredCountries,
     excludeCountries,
@@ -82,6 +85,7 @@ export function usePhoneInput(
   const resolvedAutoDetect = autoDetect ?? autoDetectCountry ?? true;
 
   const isControlled = controlledValue !== undefined;
+  const isCountryControlled = controlledCountry !== undefined;
   const inputRef = useRef<HTMLInputElement>(null);
   const pendingCaretDigitIndexRef = useRef<number | null>(null);
   const previousDefaultCountryRef = useRef(defaultCountry);
@@ -114,16 +118,28 @@ export function usePhoneInput(
     [locale, labels]
   );
 
+  const resolvedControlledCountry = useMemo(() => {
+    if (!isCountryControlled) {
+      return undefined;
+    }
+    const normalized = controlledCountry.toUpperCase();
+    return (
+      availableCountries.find((candidate) => candidate.code === normalized) ??
+      getCountryByCode(normalized)
+    );
+  }, [isCountryControlled, controlledCountry, availableCountries]);
+
   // Initialize state
   const initialCountry = availableCountries.find((candidate) => candidate.code === defaultCountry) || availableCountries[0];
   const [internalPhone, setInternalPhone] = useState(defaultValue);
-  const [country, setCountry] = useState<Country | undefined>(initialCountry);
+  const [internalCountry, setInternalCountry] = useState<Country | undefined>(initialCountry);
+  const country = isCountryControlled ? resolvedControlledCountry : internalCountry;
   const [isOpen, setIsOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setRawSearchQuery] = useState('');
   // The active option in the listbox. With the combobox pattern the search
   // field keeps DOM focus, so this index is what `aria-activedescendant`
   // points at rather than anything the browser focuses.
-  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [highlightedIndex, setRawHighlightedIndex] = useState(0);
   const listboxId = useId();
 
   // Current phone value
@@ -134,7 +150,16 @@ export function usePhoneInput(
     [locale]
   );
 
+  const onCountryChangeRef = useRef(onCountryChange);
+  useIsomorphicLayoutEffect(() => {
+    onCountryChangeRef.current = onCountryChange;
+  });
+
   useEffect(() => {
+    if (isCountryControlled) {
+      return;
+    }
+
     const defaultCountryChanged = previousDefaultCountryRef.current !== defaultCountry;
     previousDefaultCountryRef.current = defaultCountry;
     const nextCountry = availableCountries.find((candidate) => candidate.code === defaultCountry) || availableCountries[0];
@@ -143,10 +168,10 @@ export function usePhoneInput(
       : false;
 
     if (nextCountry && (defaultCountryChanged || !countryStillAvailable) && nextCountry.code !== country?.code) {
-      setCountry(nextCountry);
-      onCountryChange?.(getOutputCountry(nextCountry));
+      setInternalCountry(nextCountry);
+      onCountryChangeRef.current?.(getOutputCountry(nextCountry));
     }
-  }, [defaultCountry, availableCountries, country, onCountryChange, getOutputCountry]);
+  }, [isCountryControlled, defaultCountry, availableCountries, country, getOutputCountry]);
 
   // Auto-detect country from phone
   useEffect(() => {
@@ -174,9 +199,11 @@ export function usePhoneInput(
     }
 
     manualCountrySelectionRef.current = false;
-    setCountry(detected);
-    onCountryChange?.(getOutputCountry(detected));
-  }, [availableCountries, resolvedAutoDetect, phone, country, onCountryChange, getOutputCountry]);
+    if (!isCountryControlled) {
+      setInternalCountry(detected);
+    }
+    onCountryChangeRef.current?.(getOutputCountry(detected));
+  }, [isCountryControlled, availableCountries, resolvedAutoDetect, phone, country, getOutputCountry]);
 
   // Format phone number
   const formattedPhone = useMemo(() => {
@@ -194,9 +221,29 @@ export function usePhoneInput(
     return phone;
   }, [phone, country, includeDialCode]);
 
-  const validation = useMemo(
-    () => validatePhoneNumber(phone, country, required, validator),
-    [phone, country, required, validator]
+  const validation = useMemo(() => {
+    const result = validatePhoneNumber(phone, country, required, validator);
+    if (result.isValid || !result.reason) {
+      return result;
+    }
+
+    const localizedByReason: Record<Exclude<typeof result.reason, null>, string> = {
+      required: resolvedLabels.validationRequired,
+      too_short: resolvedLabels.validationTooShort,
+      too_long: resolvedLabels.validationTooLong,
+      invalid: resolvedLabels.validationInvalid,
+    };
+    const localizedMessage = localizedByReason[result.reason];
+    return {
+      ...result,
+      message: localizedMessage,
+      error: localizedMessage,
+    };
+  }, [phone, country, required, validator, resolvedLabels]);
+
+  const e164 = useMemo(
+    () => (validation.isValid && cleanPhone(phone) ? parsePhoneValue(phone, country).e164 : undefined),
+    [validation.isValid, phone, country]
   );
 
   // Held in a ref so handler identity does not drive the effect. An inline arrow
@@ -239,34 +286,17 @@ export function usePhoneInput(
     [localizedCountries, searchQuery, preferredCountries]
   );
 
-  // Typing a new query rebuilds the list, so the previous active index points
-  // at an unrelated country. The APG combobox makes the first match active.
-  useEffect(() => {
-    setHighlightedIndex(0);
-  }, [searchQuery]);
+  const clampedHighlightedIndex =
+    filteredCountries.length === 0
+      ? 0
+      : Math.min(Math.max(highlightedIndex, 0), filteredCountries.length - 1);
 
-  // Keep the active index inside the list when it shrinks.
-  useEffect(() => {
-    setHighlightedIndex((current) => {
-      if (filteredCountries.length === 0) {
-        return 0;
-      }
-      return current >= filteredCountries.length ? filteredCountries.length - 1 : current;
-    });
-  }, [filteredCountries.length]);
+  const activeCountry = filteredCountries[clampedHighlightedIndex];
 
-  // Opening should land on the country that is already chosen, so a screen
-  // reader announces the current value first instead of the top of the list.
-  const wasOpenRef = useRef(false);
-  useEffect(() => {
-    if (isOpen && !wasOpenRef.current) {
-      const selectedIndex = filteredCountries.findIndex((candidate) => candidate.code === country?.code);
-      setHighlightedIndex(selectedIndex >= 0 ? selectedIndex : 0);
-    }
-    wasOpenRef.current = isOpen;
-  }, [isOpen, filteredCountries, country?.code]);
-
-  const activeCountry = filteredCountries[highlightedIndex];
+  const setSearchQuery = useCallback((query: string) => {
+    setRawSearchQuery(query);
+    setRawHighlightedIndex(0);
+  }, []);
 
   useIsomorphicLayoutEffect(() => {
     const nextDigitIndex = pendingCaretDigitIndexRef.current;
@@ -306,15 +336,17 @@ export function usePhoneInput(
       const newCountry = getCountryByCode(code);
       if (newCountry) {
         manualCountrySelectionRef.current = true;
-        setCountry(newCountry);
-        onCountryChange?.(getOutputCountry(newCountry));
+        if (!isCountryControlled) {
+          setInternalCountry(newCountry);
+        }
+        onCountryChangeRef.current?.(getOutputCountry(newCountry));
         onChange?.(
           includeDialCode ? addDialCode(phone, newCountry) : phone,
           getOutputCountry(newCountry)
         );
       }
     },
-    [phone, onChange, onCountryChange, includeDialCode, getOutputCountry]
+    [isCountryControlled, phone, onChange, includeDialCode, getOutputCountry]
   );
 
   // Select country from dropdown
@@ -336,36 +368,44 @@ export function usePhoneInput(
         setInternalPhone(rewritten);
       }
 
-      setCountry(rawCountry);
+      if (!isCountryControlled) {
+        setInternalCountry(rawCountry);
+      }
       setIsOpen(false);
       setSearchQuery('');
-      onCountryChange?.(getOutputCountry(rawCountry));
+      onCountryChangeRef.current?.(getOutputCountry(rawCountry));
       onChange?.(
         includeDialCode ? addDialCode(rewritten, rawCountry) : rewritten,
         getOutputCountry(rawCountry)
       );
     },
-    [phone, country, isControlled, onChange, onCountryChange, includeDialCode, getOutputCountry]
+    [isCountryControlled, phone, country, isControlled, setSearchQuery, onChange, includeDialCode, getOutputCountry]
   );
 
-  // Toggle dropdown
-  const toggleDropdown = useCallback(() => {
-    setIsOpen(prev => !prev);
-    if (isOpen) {
-      setSearchQuery('');
-    }
-  }, [isOpen]);
-
-  // Open dropdown
+  // Open dropdown. Lands on the chosen country so a screen reader announces
+  // the current value first instead of the top of the list.
   const openDropdown = useCallback(() => {
+    if (!isOpen) {
+      const selectedIndex = filteredCountries.findIndex((candidate) => candidate.code === country?.code);
+      setRawHighlightedIndex(selectedIndex >= 0 ? selectedIndex : 0);
+    }
     setIsOpen(true);
-  }, []);
+  }, [isOpen, filteredCountries, country?.code]);
 
   // Close dropdown
   const closeDropdown = useCallback(() => {
     setIsOpen(false);
     setSearchQuery('');
-  }, []);
+  }, [setSearchQuery]);
+
+  // Toggle dropdown
+  const toggleDropdown = useCallback(() => {
+    if (isOpen) {
+      closeDropdown();
+    } else {
+      openDropdown();
+    }
+  }, [isOpen, openDropdown, closeDropdown]);
 
   // Clear input
   const clear = useCallback(() => {
@@ -380,7 +420,14 @@ export function usePhoneInput(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const rawValue = event.target.value;
       const caretPosition = event.target.selectionStart ?? rawValue.length;
-      const unformatted = rawValue.trim().startsWith('+') ? `+${rawValue.replace(/\D/g, '')}` : unformatPhone(rawValue);
+      let unformatted = rawValue.trim().startsWith('+') ? `+${rawValue.replace(/\D/g, '')}` : unformatPhone(rawValue);
+
+      if (unformatted.startsWith('+')) {
+        const parsed = parsePhoneNumberFromString(unformatted);
+        if (parsed?.isValid()) {
+          unformatted = parsed.number;
+        }
+      }
 
       // Cap input at the maximum possible length for the selected country
       // (libphonenumber metadata). Deletions are always allowed.
@@ -428,11 +475,11 @@ export function usePhoneInput(
   }, [onBlur]);
 
   const getCountryOptionId = useCallback(
-    (code: string) => `phone-input-country-${code}`,
-    []
+    (code: string) => `${listboxId}-country-${code}`,
+    [listboxId]
   );
 
-  const activeOptionId = activeCountry ? getCountryOptionId(activeCountry.code) : undefined;
+  const activeOptionId = isOpen && activeCountry ? getCountryOptionId(activeCountry.code) : undefined;
 
   // ponytail: one plural form per locale, so a single match reads "1 countries".
   // Pass a `labels.countryResultsAnnouncement` override if that matters to you;
@@ -441,12 +488,47 @@ export function usePhoneInput(
     ? resolvedLabels.noCountriesFound
     : resolvedLabels.countryResultsAnnouncement.replace('{count}', String(filteredCountries.length));
 
-  const moveHighlight = useCallback(
+  const setHighlightedIndex = useCallback(
     (nextIndex: number) => {
       const lastIndex = filteredCountries.length - 1;
-      setHighlightedIndex(lastIndex < 0 ? 0 : Math.min(Math.max(nextIndex, 0), lastIndex));
+      setRawHighlightedIndex(lastIndex < 0 ? 0 : Math.min(Math.max(nextIndex, 0), lastIndex));
     },
     [filteredCountries.length]
+  );
+
+  const handleCountrySearchKeyDown = useCallback(
+    (event: { key: string; preventDefault: () => void }) => {
+      switch (event.key) {
+        case 'ArrowDown':
+          event.preventDefault();
+          setHighlightedIndex(clampedHighlightedIndex + 1);
+          break;
+        case 'ArrowUp':
+          event.preventDefault();
+          setHighlightedIndex(clampedHighlightedIndex - 1);
+          break;
+        case 'Home':
+          event.preventDefault();
+          setHighlightedIndex(0);
+          break;
+        case 'End':
+          event.preventDefault();
+          setHighlightedIndex(filteredCountries.length - 1);
+          break;
+        case 'Enter':
+          // Prevent submitting a parent form even when zero matches are left.
+          event.preventDefault();
+          if (activeCountry) {
+            selectCountry(activeCountry);
+          }
+          break;
+        case 'Escape':
+          event.preventDefault();
+          closeDropdown();
+          break;
+      }
+    },
+    [setHighlightedIndex, clampedHighlightedIndex, filteredCountries.length, activeCountry, selectCountry, closeDropdown]
   );
 
   const getCountryOptionProps = useCallback(
@@ -455,7 +537,7 @@ export function usePhoneInput(
       role: 'option' as const,
       // Selection follows the active option in a single-select listbox, so this
       // tracks the highlight rather than the committed country.
-      'aria-selected': index === highlightedIndex,
+      'aria-selected': index === clampedHighlightedIndex,
       onClick: () => selectCountry(optionCountry),
       onKeyDown: (event: { key: string; preventDefault: () => void }) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -467,9 +549,9 @@ export function usePhoneInput(
           closeDropdown();
         }
       },
-      tabIndex: index === 0 ? 0 : -1,
+      tabIndex: index === clampedHighlightedIndex ? 0 : -1,
     }),
-    [closeDropdown, highlightedIndex, getCountryOptionId, selectCountry]
+    [closeDropdown, clampedHighlightedIndex, getCountryOptionId, selectCountry]
   );
 
   return {
@@ -485,7 +567,8 @@ export function usePhoneInput(
     searchQuery,
     labels: resolvedLabels,
     formattedValue: formattedPhone,
-    highlightedIndex,
+    e164,
+    highlightedIndex: clampedHighlightedIndex,
     activeCountry,
     countryResultsText,
     // Actions
@@ -500,7 +583,7 @@ export function usePhoneInput(
     close: closeDropdown,
     setSearchQuery,
     setHighlightedIndex,
-    moveHighlight,
+    moveHighlight: setHighlightedIndex,
     clear,
     // Props
     inputProps: {
@@ -528,6 +611,7 @@ export function usePhoneInput(
       role: 'combobox' as const,
       value: searchQuery,
       onChange: (event: { target: { value: string } }) => setSearchQuery(event.target.value),
+      onKeyDown: handleCountrySearchKeyDown,
       'aria-expanded': isOpen,
       'aria-controls': listboxId,
       'aria-autocomplete': 'list' as const,
