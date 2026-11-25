@@ -456,8 +456,10 @@ export function usePhoneInput(
       // without a leading '+' (e.g. "918123456789" inside IN +91). Strip the
       // redundant prefix before formatting or truncation damages the number.
       const digits = cleanPhone(unformatted);
-      const isBulkInsertion = digits.length - cleanPhone(formattedPhone).length >= 4;
-      if (!isInternationalEntry && country && (isBulkInsertion || isPhoneTooLong(digits, country))) {
+      const prevDigits = cleanPhone(formattedPhone);
+      const isDeletion = digits.length < prevDigits.length;
+      const isTypingAppend = digits.length === prevDigits.length + 1 && digits.startsWith(prevDigits);
+      if (!isInternationalEntry && country && !isDeletion && (!isTypingAppend || isPhoneTooLong(digits, country))) {
         const matchesCountryDialCode = country.dialCodes.some((dialCode) =>
           digits.startsWith(dialCode.replace('+', ''))
         );
