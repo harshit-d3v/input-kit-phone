@@ -15,6 +15,7 @@ export {
   localizeCountry,
   localizeCountries,
 } from './countries';
+export { detectBrowserCountry } from './browser';
 export type { Country, CountryOption, GetCountryOptionsParams } from './countries';
 
 // Labels

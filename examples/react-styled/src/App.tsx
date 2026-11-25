@@ -1,12 +1,15 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import {
   PhoneInput,
+  detectBrowserCountry,
   getCountryByCode,
   parsePhoneValue,
   usePhoneInput,
   type Country,
   type ValidationResult,
 } from '@input-kit/phone';
+import { CountryFlag, renderCountryFlag } from '@input-kit/phone/flags';
+import { createPhoneTypeValidator, getPhoneNumberType } from '@input-kit/phone/validation';
 
 const QUICK_COUNTRIES = ['US', 'GB', 'IN', 'DE'] as const;
 const LOCALES = ['en', 'fr', 'de', 'es', 'hi', 'ja'] as const;
@@ -14,10 +17,21 @@ const LOCALES = ['en', 'fr', 'de', 'es', 'hi', 'ja'] as const;
 export function App() {
   const [controlledCountry, setControlledCountry] = useState('US');
   const [locale, setLocale] = useState<(typeof LOCALES)[number]>('en');
+  const [mobileOnly, setMobileOnly] = useState(false);
   const headlessContainerRef = useRef<HTMLDivElement | null>(null);
   const headlessButtonRef = useRef<HTMLButtonElement | null>(null);
   const shouldReturnFocusRef = useRef(false);
   const pendingKeyUpCleanupRef = useRef<(() => void) | null>(null);
+
+  const mobileValidator = useMemo(
+    () =>
+      mobileOnly
+        ? createPhoneTypeValidator(['MOBILE', 'FIXED_LINE_OR_MOBILE'], {
+            message: 'Please enter a mobile number',
+          })
+        : undefined,
+    [mobileOnly]
+  );
 
   const {
     inputProps,
@@ -46,7 +60,13 @@ export function App() {
     },
     locale,
     required: true,
+    validator: mobileValidator,
   });
+
+  const detectedNumberType = useMemo(
+    () => (phone ? getPhoneNumberType(phone, country) : undefined),
+    [phone, country]
+  );
 
   useEffect(() => {
     if (!isOpen) return;
@@ -79,7 +99,6 @@ export function App() {
     if (event.key === 'Escape') {
       shouldReturnFocusRef.current = true;
     } else if (event.key === 'Enter' && activeCountry) {
-      // Wait for keyup before focusing the trigger so trailing Enter keypress events do not re-open it.
       const key = event.key;
       pendingKeyUpCleanupRef.current?.();
       const handleKeyUp = (upEvent: globalThis.KeyboardEvent) => {
@@ -100,13 +119,28 @@ export function App() {
   const [refPhone, setRefPhone] = useState('');
   const [refCountry, setRefCountry] = useState<Country | undefined>(() => getCountryByCode('GB'));
   const [refValidation, setRefValidation] = useState<ValidationResult | null>(null);
+  const [submittedFormPhone, setSubmittedFormPhone] = useState<string | null>(null);
   const refE164 = refValidation?.isValid && refPhone ? parsePhoneValue(refPhone, refCountry).e164 : undefined;
+
+  const handleDetectCountry = () => {
+    const detected = detectBrowserCountry('US');
+    if (detected) {
+      setControlledCountry(detected);
+    }
+  };
+
+  const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const submitted = formData.get('phone');
+    setSubmittedFormPhone(typeof submitted === 'string' ? submitted : '');
+  };
 
   return (
     <main className="page">
       <header className="page-header">
         <h1>@input-kit/phone</h1>
-        <p>Headless ARIA combobox hook and unstyled reference component.</p>
+        <p>Headless ARIA combobox hook, offline SVG flags, and number-type validation.</p>
       </header>
 
       <section className="card" aria-labelledby="headless-heading">
@@ -125,6 +159,19 @@ export function App() {
                 </button>
               ))}
             </div>
+
+            <button type="button" className="pill-btn" onClick={handleDetectCountry}>
+              Detect country
+            </button>
+
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={mobileOnly}
+                onChange={(event) => setMobileOnly(event.target.checked)}
+              />
+              <span>Mobile only</span>
+            </label>
 
             <label className="locale-label">
               <span>Locale</span>
@@ -149,7 +196,7 @@ export function App() {
             className="country-trigger"
             {...countryButtonProps}
           >
-            <span className="flag-pill">{country?.code ?? '??'}</span>
+            {country ? <CountryFlag code={country.code} /> : null}
             <span>{country?.dialCode ?? labels.selectCountry}</span>
           </button>
 
@@ -181,7 +228,7 @@ export function App() {
                       candidate.code === country?.code ? 'selected' : ''
                     } ${index === highlightedIndex ? 'highlighted' : ''}`}
                   >
-                    <span className="flag-pill">{candidate.code}</span>
+                    <CountryFlag code={candidate.code} />
                     <span className="country-name">{candidate.displayName ?? candidate.name}</span>
                     <span className="country-dial">{candidate.dialCode}</span>
                   </li>
@@ -214,6 +261,10 @@ export function App() {
             <dd data-testid="headless-country">{country?.code ?? '—'}</dd>
           </div>
           <div>
+            <dt>type</dt>
+            <dd data-testid="headless-type">{detectedNumberType ?? '—'}</dd>
+          </div>
+          <div>
             <dt>status</dt>
             <dd data-testid="headless-valid">{isValid ? 'Valid' : 'Invalid'}</dd>
           </div>
@@ -233,21 +284,27 @@ export function App() {
           </label>
         </div>
 
-        <PhoneInput
-          defaultCountry="GB"
-          searchable={refSearchable}
-          renderFlag={(c) => <span className="flag-pill">{c.code}</span>}
-          containerClassName="ref-phone-field"
-          selectorClassName="country-trigger"
-          inputClassName="phone-input"
-          aria-label="Reference phone number"
-          onCountryChange={setRefCountry}
-          onValidationChange={setRefValidation}
-          onChange={(nextPhone, nextCountry) => {
-            setRefPhone(nextPhone);
-            setRefCountry(nextCountry);
-          }}
-        />
+        <form className="native-form" onSubmit={handleFormSubmit}>
+          <PhoneInput
+            name="phone"
+            defaultCountry="GB"
+            searchable={refSearchable}
+            renderFlag={renderCountryFlag}
+            containerClassName="ref-phone-field"
+            selectorClassName="country-trigger"
+            inputClassName="phone-input"
+            aria-label="Reference phone number"
+            onCountryChange={setRefCountry}
+            onValidationChange={setRefValidation}
+            onChange={(nextPhone, nextCountry) => {
+              setRefPhone(nextPhone);
+              setRefCountry(nextCountry);
+            }}
+          />
+          <button type="submit" className="submit-btn">
+            Submit
+          </button>
+        </form>
 
         {refValidation && !refValidation.isValid && refValidation.error ? (
           <p className="error" role="alert">
@@ -263,6 +320,10 @@ export function App() {
           <div>
             <dt>e164</dt>
             <dd data-testid="ref-e164">{refE164 ?? '—'}</dd>
+          </div>
+          <div>
+            <dt>form submit</dt>
+            <dd data-testid="ref-form-submit">{submittedFormPhone ?? '—'}</dd>
           </div>
           <div>
             <dt>onChange country</dt>

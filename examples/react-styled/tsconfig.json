@@ -9,7 +9,9 @@
     "skipLibCheck": true,
     "noEmit": true,
     "paths": {
-      "@input-kit/phone": ["../../src/index.ts"]
+      "@input-kit/phone": ["../../src/index.ts"],
+      "@input-kit/phone/flags": ["../../src/flags.tsx"],
+      "@input-kit/phone/validation": ["../../src/validation.ts"]
     }
   },
   "include": ["src"]

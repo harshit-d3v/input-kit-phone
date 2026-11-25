@@ -315,4 +315,52 @@ describe('PhoneInput country combobox', () => {
     expect(screen.getAllByTestId('flag-US').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByTestId('flag-GB').textContent).toBe('GB');
   });
+
+  it('submits clean E.164 values in native forms by default and supports formValue modes', () => {
+    const { container, rerender } = render(
+      <form>
+        <PhoneInput name="phone" defaultCountry="US" defaultValue="4155552671" />
+      </form>
+    );
+
+    const form = container.querySelector('form') as HTMLFormElement;
+    const textInput = screen.getByDisplayValue('(415) 555-2671');
+    expect(textInput.getAttribute('name')).toBeNull();
+    expect(new FormData(form).get('phone')).toBe('+14155552671');
+
+    rerender(
+      <form>
+        <PhoneInput name="phone" defaultCountry="US" value="415" />
+      </form>
+    );
+    expect(new FormData(form).get('phone')).toBe('');
+
+    rerender(
+      <form>
+        <PhoneInput name="phone" defaultCountry="US" value="4155552671" validator={() => false} />
+      </form>
+    );
+    expect(new FormData(form).get('phone')).toBe('');
+
+    rerender(
+      <form>
+        <PhoneInput name="phone" defaultCountry="US" value="415" formValue="full" />
+      </form>
+    );
+    expect(new FormData(form).get('phone')).toBe('+1415');
+
+    rerender(
+      <form>
+        <PhoneInput name="phone" defaultCountry="US" value="4155552671" formValue="national" />
+      </form>
+    );
+    expect(new FormData(form).get('phone')).toBe('(415) 555-2671');
+
+    rerender(
+      <form>
+        <PhoneInput name="phone" defaultCountry="US" value="4155552671" disabled />
+      </form>
+    );
+    expect(new FormData(form).get('phone')).toBeNull();
+  });
 });

@@ -12,6 +12,8 @@ Source, issues, and contributions: **[github.com/harshit-d3v/input-kit-phone](ht
 
 ## Latest update
 
+**0.8.0**: adds Backspace/Delete over mask punctuation without trapping the cursor, synchronous initial country resolution from E.164 values, browser autofill dial-code deduplication, default hidden E.164 `<form>` submission (`formValue`), custom error strings returned from `validator`, zero-network `detectBrowserCountry(fallback?)`, tree-shaken `@input-kit/phone/flags` (245 offline Windows-safe SVGs) and `@input-kit/phone/validation` (`getPhoneNumberType`, `isMobilePhone`, `createPhoneTypeValidator`) subpaths, plus a ready-to-install `shadcn/ui` component (`registry/phone-input.json`).
+
 **0.7.0**: adds controlled `country` support, direct `e164` output on `usePhoneInput()`, localized validation error messages across all 11 bundled languages, custom `renderFlag` on `<PhoneInput>`, prefix-aware length capping for variable-length countries (such as 10-digit Indian mobile numbers alongside 13-digit `1800` numbers), and pasted international `(0)` trunk-zero cleanup. Also drops the runtime `libphonenumber-js/mobile/examples` import by pre-generating format masks, and fixes combobox keyboard wiring, multi-instance option IDs, `Enter` focus return in browsers, and React 18 `inputProps.ref` compatibility.
 
 **0.6.0**: the country selector is now a real ARIA combobox. The search field drives `aria-activedescendant` while keeping focus, the active option is the selected one, and a live region announces how many countries matched. Headless consumers get `countrySearchProps`, `activeCountry`, `moveHighlight` and `countryResultsText`.
@@ -35,14 +37,25 @@ Source, issues, and contributions: **[github.com/harshit-d3v/input-kit-phone](ht
 - **Searchable country selector** with country name, ISO code, and dial-code matching
 - **Accessible country selector** built on the WAI-ARIA combobox pattern, with `aria-activedescendant` navigation and a live region announcing the filtered count
 - **Format as you type** in the selected country's format, on every keystroke, powered by `libphonenumber-js`
-- **Real validation** powered by `libphonenumber-js`
-- **International detection** for pasted or typed `+` / `00` numbers
+- **Real validation** powered by `libphonenumber-js`, with optional `@input-kit/phone/validation` mobile/landline number-type checks (`0 KB` added to core)
+- **Windows-safe SVG flags (optional)** via `@input-kit/phone/flags` (`245` inline SVGs with zero CDN requests) plus `renderFlag`
+- **Zero-network country hint** via SSR-safe `detectBrowserCountry()`
+- **Native `<form>` & `shadcn/ui` ready** with hidden E.164 form submission (`formValue`) and one-command registry install
+- **International detection** for pasted or typed `+` / `00` numbers and autofill dial-code deduplication
 - **TypeScript-first** exports for countries, helpers, hook return values, and component refs
 
 ## Installation
 
 ```bash
 npm install @input-kit/phone
+```
+
+### shadcn/ui (Tailwind + Popover)
+
+Install the pre-wired component directly with the shadcn CLI (requires `@input-kit/phone`, `lucide-react`, plus `button`, `input`, and `popover`):
+
+```bash
+npx shadcn@latest add https://raw.githubusercontent.com/harshit-d3v/input-kit-phone/main/registry/phone-input.json
 ```
 
 ## Quick Start
@@ -155,7 +168,58 @@ Formatting, length checks, and validity follow **[libphonenumber-js](https://www
 
 ## Form integrations
 
-Controlled `value` / `onChange` with `usePhoneInput` or `PhoneInput`. React Hook Form: wrap with `Controller` and pass `field.value`, `field.onChange`, and `field.onBlur`. Use `onValidationChange` to sync `isValid` / `message` with form errors. Submit-time checks: `parsePhoneValue(phone, country)` or `validatePhoneNumber`.
+### Native HTML forms & Server Actions
+
+Passing `name="phone"` to `<PhoneInput>` renders a hidden `<input type="hidden" name="phone" />` containing the clean E.164 value by default (`formValue="e164"`). Set `formValue="full"` to submit unvalidated dial-coded digits or `formValue="national"` to submit the visible input value.
+
+### React Hook Form + Zod
+
+```tsx
+import { Controller, useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { PhoneInput, parsePhoneValue } from '@input-kit/phone';
+import { renderCountryFlag } from '@input-kit/phone/flags';
+import { isMobilePhone } from '@input-kit/phone/validation';
+
+const schema = z.object({
+  phone: z
+    .string()
+    .refine((value) => parsePhoneValue(value).isValid, 'Enter a valid phone number')
+    .refine((value) => isMobilePhone(value), 'Mobile number required'),
+});
+
+function SignupForm() {
+  const { control, handleSubmit } = useForm({
+    defaultValues: { phone: '+14155552671' },
+  });
+
+  return (
+    <form onSubmit={handleSubmit((data) => console.log(data.phone))}>
+      <Controller
+        name="phone"
+        control={control}
+        render={({ field, fieldState }) => (
+          <>
+            <PhoneInput
+              value={field.value}
+              onChange={(nextValue) => field.onChange(nextValue)}
+              onBlur={field.onBlur}
+              includeDialCode
+              renderFlag={renderCountryFlag}
+            />
+            {fieldState.error && <p>{fieldState.error.message}</p>}
+          </>
+        )}
+      />
+    </form>
+  );
+}
+```
+
+## Optional subpaths (0 KB in core)
+
+- **`@input-kit/phone/flags`**: `CountryFlag`, `renderCountryFlag`, and `getFlagSvg` backed by 245 inline 3x2 SVG flags that work offline and on Windows (where OS emoji flags render as two-letter codes).
+- **`@input-kit/phone/validation`**: `getPhoneNumberType`, `isMobilePhone`, `createPhoneTypeValidator`, and `PhoneNumberType` backed by `libphonenumber-js/max`. Note: US and Canada (`+1`) numbers often report `FIXED_LINE_OR_MOBILE`, which `isMobilePhone` allows by default unless `allowFixedLineOrMobile: false` is passed.
 
 ## Styled example
 
@@ -211,6 +275,7 @@ Bug reports, feature requests, and pull requests are welcome, see [CONTRIBUTING.
 - `getCountriesByDialCode(dialCode)`
 - `getCountryOptions({ locale?, preferredCountries?, excludeCountries?, onlyCountries? })`
 - `detectCountryFromPhone(phone)`
+- `detectBrowserCountry(fallback?)`
 
 ### Utilities
 
@@ -234,13 +299,13 @@ Compatibility aliases: `stripNonDigits`, `detectCountry`, `formatPhoneNumber`, `
 | `formatOnType` | `boolean` | `true` | Apply live formatting |
 | `includeDialCode` | `boolean` | `false` | Return values with dial code included |
 | `required` | `boolean` | `false` | Empty value is invalid |
-| `validator` | `(phone, country) => boolean` | - | Custom validation override |
+| `validator` | `(phone, country) => boolean \| string` | - | Custom validation override (return a string for a custom error message) |
 | `onCountryChange` | `(country) => void` | - | Fires when the selected country changes |
 | `onValidationChange` | `(state) => void` | - | Fires when validation result changes |
 | `locale` | `string \| readonly string[]` | - | Locale used for country names and built-in labels |
 | `labels` | `Partial<PhoneInputLabels>` | - | Override UI, announcement, and validation strings |
 
-`<PhoneInput>` also accepts `renderFlag?: (country: Country) => ReactNode` for custom SVG or badge flags (helpful on Windows where emoji flags render as two-letter codes).
+`<PhoneInput>` also accepts `renderFlag?: (country: Country) => ReactNode` (pairs directly with `renderCountryFlag` from `@input-kit/phone/flags`) and `formValue?: 'e164' | 'full' | 'national'` (default `'e164'`) when `name` is provided.
 
 Important returned fields: `phone`, `fullPhone`, `e164`, `country`, `isValid`, `validationReason`, `error`, `filteredCountries`, `activeCountry`, `highlightedIndex`, `setHighlightedIndex`, `countryResultsText`, `inputProps`, `countryButtonProps`, `countrySearchProps`, `dropdownProps`, `getCountryOptionId`, `getCountryOptionProps`.
 

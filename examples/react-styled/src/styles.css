@@ -104,6 +104,34 @@
   align-items: stretch;
 }
 
+.native-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.native-form .ref-phone-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.submit-btn {
+  border: 1px solid #0f172a;
+  background: #0f172a;
+  color: #ffffff;
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.9rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.submit-btn:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
 .country-trigger,
 .phone-input,
 .search,

@@ -257,12 +257,12 @@ export function validatePhoneLength(phone: string, country: MaybeCountry): boole
 export function validatePhone(
   phone: string,
   country: MaybeCountry,
-  customValidator?: (phone: string, country: Country | undefined) => boolean
+  customValidator?: (phone: string, country: Country | undefined) => boolean | string
 ): boolean {
   if (!phone) return false;
   
   if (customValidator) {
-    return customValidator(phone, country ?? undefined);
+    return customValidator(phone, country ?? undefined) === true;
   }
 
   const normalized = normalizePhoneInput(phone);
@@ -469,7 +469,7 @@ export function validatePhoneNumber(
   phone: string,
   country?: MaybeCountry,
   required = false,
-  customValidator?: (phone: string, country: Country | undefined) => boolean
+  customValidator?: (phone: string, country: Country | undefined) => boolean | string
 ): ValidationResult {
   const digits = cleanPhone(phone);
   if (!digits) {
@@ -491,9 +491,19 @@ export function validatePhoneNumber(
     return validationFailure('too_long', 'Phone number is too long');
   }
 
-  const isValid = customValidator
-    ? customValidator(phone, country ?? undefined)
-    : validatePhone(phone, country);
+  if (customValidator) {
+    const customResult = customValidator(phone, country ?? undefined);
+    if (customResult === true) {
+      return validationSuccess();
+    }
+    const customMessage =
+      typeof customResult === 'string' && customResult.trim().length > 0
+        ? customResult
+        : 'Invalid phone number';
+    return validationFailure('invalid', customMessage);
+  }
+
+  const isValid = validatePhone(phone, country);
 
   return isValid ? validationSuccess() : validationFailure('invalid', 'Invalid phone number');
 }

@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-25
+
+### Added
+
+- Optional `@input-kit/phone/flags` subpath exporting `CountryFlag`, `renderCountryFlag`, and `getFlagSvg` backed by 245 compact inline 3x2 SVGs (`country-flag-icons` build-time generation), rendering cleanly on Windows with zero CDN requests and 0 KB added to core imports.
+- Optional `@input-kit/phone/validation` subpath exporting `getPhoneNumberType`, `isMobilePhone`, `createPhoneTypeValidator`, and `PhoneNumberType` powered by `libphonenumber-js/max`, adding 0 KB to core imports.
+- `detectBrowserCountry(fallback?)` SSR-safe zero-network country hint using `Intl.DateTimeFormat().resolvedOptions().timeZone` with `navigator.languages` fallback.
+- `formValue` prop on `PhoneInput` (`'e164' | 'full' | 'national'`, defaulting to `'e164'`) submitting clean E.164 or dial-coded values via a hidden `<input>` when `name` is provided.
+- Custom string error support for `validator`: returning a non-empty string surfaces that message in `validation.message` / `error`.
+- `shadcn/ui` registry component in `registry/phone-input.tsx` + `registry/phone-input.json` (generated via `scripts/build-registry.mjs`) installable with `npx shadcn@latest add`.
+
+### Fixed
+
+- Backspace and Delete adjacent to mask punctuation (such as `(415)| 555-2671` or `81234 |56789`) now skip over the punctuation to delete the neighboring digit cleanly without trapping the cursor.
+- Initial country resolution from an E.164 `value` or `defaultValue` now happens synchronously on the first render instead of flipping in a mount effect.
+- Browser autofill and bulk paste inputs that include the selected country's dial code without a leading `+` (such as `918123456789` in `IN`) now strip the duplicate prefix cleanly instead of truncating trailing digits.
+
 ## [0.7.0] - 2026-11-24
 
 ### Added
@@ -145,7 +162,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `docs/integrations.md` for React Hook Form, Formik, Zod, and controlled inputs
 - Refreshed `FUTURE.md` for the next development phase
 
-[Unreleased]: https://github.com/harshit-d3v/input-kit-phone/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/harshit-d3v/input-kit-phone/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/harshit-d3v/input-kit-phone/releases/tag/v0.8.0
 [0.7.0]: https://github.com/harshit-d3v/input-kit-phone/releases/tag/v0.7.0
 [0.6.0]: https://github.com/harshit-d3v/input-kit-phone/releases/tag/v0.6.0
 [0.5.0]: https://github.com/harshit-d3v/input-kit-phone/releases/tag/v0.5.0

@@ -46,8 +46,8 @@ export interface PhoneInputOptions {
   includeDialCode?: boolean;
   /** Whether an empty phone value is invalid */
   required?: boolean;
-  /** Custom validation function */
-  validator?: (phone: string, country: Country | undefined) => boolean;
+  /** Custom validation function; return a string to show a custom error message */
+  validator?: (phone: string, country: Country | undefined) => boolean | string;
   /** Called when validation state changes */
   onValidationChange?: (state: ValidationResult) => void;
   /** Locale used for localized country names */
@@ -195,6 +195,8 @@ export interface PhoneInputProps extends PhoneInputOptions {
   onFocus?: () => void;
   /** Custom renderer for country flags in the selector button and dropdown options */
   renderFlag?: (country: Country) => ReactNode;
+  /** Value submitted in native HTML forms when `name` is set (default: `'e164'`) */
+  formValue?: 'e164' | 'full' | 'national';
   /** Custom class name for container */
   containerClassName?: string;
   /** Custom class name for input */
